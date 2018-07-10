@@ -54,3 +54,12 @@ Server Credentials
 	User: iqvia-ohdsi
 	Password:  I!QViAOH@DSI18
 	(Note: It is highly recommended to change the password once logged in)
+	
+If you prefer to create your own server deployment an installation guide is available with all software, databases, and other tools to ease in the installation and deployment.  
+
+The file is titled: 
+	
+	OHDSI-In-a-box-QuickStart-Installation-Guide-v1.02
+
+Note:
+The installation guide only provides instructions for a SQL Server database.
