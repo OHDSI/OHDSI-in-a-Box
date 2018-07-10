@@ -52,6 +52,7 @@ iqvia-ohdsi-sqlserver-100k-2.3m-v1.00 - Details
 	Server Login 
 
 Server Credentials
+
 	User: iqvia-ohdsi
 	Password:  I!QViAOH@DSI18
 	(Note: It is highly recommended to change the password once logged in)
