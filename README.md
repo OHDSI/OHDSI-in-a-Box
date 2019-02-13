@@ -1,7 +1,7 @@
 # OHDSI-in-a-Box
 AWS AMI containing SynPUF data in OMOP CDM, a RDBS including query client, WebAPI, ATLAS.
 
-To launch the AWS OHDSI In-a-box instance search for IQVIA or OHDSI in the community AMI search box in AWS.  
+To launch the AWS OHDSI In-a-box instance search for IQVIA or OHDSI in the community AMI search box in AWS `(US-EAST Region)`.
 
 The search will return 2 instances to choose from for your EC2 instance.
 
