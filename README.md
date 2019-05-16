@@ -33,13 +33,13 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 | CMS DeSynPUF | 100k persons |
 | Synthea | 1k persons |
 
-**default Windows username** ohdsi
+**Windows username:** ohdsi
 
-**Windows password** this is specified as a parameter during deployment
+**Windows password:** this is specified as a parameter during deployment
 
-**default Postgres username** postgres
+**Postgres username:** postgres
 
-**default Postgres password** ohdsi
+**Postgres password:** ohdsi
 
 
 ## OHDSI-in-a-Box deployment instructions
