@@ -34,9 +34,13 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 | Synthea | 1k persons |
 
 **default Windows username** ohdsi
+
 **Windows password** this is specified as a parameter during deployment
+
 **default Postgres username** postgres
+
 **default Postgres password** ohdsi
+
 
 ## OHDSI-in-a-Box deployment instructions
 
