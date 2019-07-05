@@ -42,7 +42,7 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 **Postgres password:** ohdsi
 
 ## OHDSI-in-a-Box Architecture
-A high-level diagram showing how the different components of OHDSI map to AWS Services is shown below.  
+OHDSI-in-a-Box is specifically created as a learning environment, and is used in most of the tutorials provided by the OHDSI community. It includes many OHDSI tools, sample data sets, RStudio and other supporting software in a single, low cost Windows virtual machine. A PostgreSQL database is used to store the CDM and also to store the intermediary results from ATLAS. The OMOP CDM data mapping and ETL tools are also included in OHDSI-in-a-Box. A high-level diagram showing how the different components of OHDSI map to AWS Services is shown below.  
 ![alt-text](images/OHDSI-in-a-BoxDiagram.png "AWS OHDSI High-Level Diagram")
 
 ## OHDSI-in-a-Box deployment instructions
