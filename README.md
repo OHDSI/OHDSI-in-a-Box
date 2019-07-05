@@ -41,6 +41,9 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 
 **Postgres password:** ohdsi
 
+## OHDSI-in-a-Box Architecture
+A high-level diagram showing how the different components of OHDSI map to AWS Services is shown below.  
+![alt-text](images/OHDSI-in-a-BoxDiagram.png "AWS OHDSI High-Level Diagram")
 
 ## OHDSI-in-a-Box deployment instructions
 
@@ -53,12 +56,23 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 
 2. The next screen will take in all of the parameters for your OHDSI environment.  A description is provided for each parameter to help explain its function, but following is also a detailed description of how to use each parameter.  At the top, provide a unique **Stack Name**.   
 
-#### General AWS parameters
+#### Security
 |Parameter Name| Description|
 |---------------|-----------|
-| InstancePassword | **Required** This password will be used to allow you to login to the OHDSI-in-a-Box instance.  It can contain upper and lowercase letters, numbers, and/or these special characters !@# |
-| InstanceType | This determines the processing power of your OHDSI-in-aBox instance.  Typically, t3.medium offers a good balance between cost and performance  For more information, see the [list of available EC2 instnance types](https://aws.amazon.com/ec2/instance-types/). |
-| NumberofInstances | This determines the number of OHDSI-in-a-Box instances that will be deployed.  This allows you to easily deploy more than 1 instance if you are using it for a virtual training environment. |
+| Instance Password | **Required** This password will be used to allow you to login to the OHDSI-in-a-Box instance.  It can contain upper and lowercase letters, numbers, and/or these special characters !@# |
+| Limit access to IP address range? | **Required** This parameter allows you to limit the IP address range that can access your Atlas and RStudio servers. It uses CIDR notation. The default of 0.0.0.0/0 will allow access from any address.|
+
+#### Scaling
+|Parameter Name| Description|
+|---------------|-----------|
+| Number of OHDSI-in-a-Box instances to deploy | This determines the number of OHDSI-in-a-Box instances that will be deployed.  This allows you to easily deploy more than 1 instance if you are using it for a virtual training environment. |
+| Instance type to use for each OHDSI-in-a-Box instance | This determines the processing power of your OHDSI-in-aBox instance.  Typically, t3.medium offers a good balance between cost and performance  For more information, see the [list of available EC2 instnance types](https://aws.amazon.com/ec2/instance-types/). |
+| Instance type to use for each OHDSI-in-a-Box instance | This determines the processing power of your OHDSI-in-aBox instance.  Typically, t3.medium offers a good balance between cost and performance  For more information, see the [list of available EC2 instnance types](https://aws.amazon.com/ec2/instance-types/). |
+| Disk space for each OHDSI-in-a-Box instance | This defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB).  You can use this parameter to deploy additional disk space in order to upload your own data into your OHDSI-in-a-Box instance. |
+
+#### Networking
+|Parameter Name| Description|
+|---------------|-----------|
 | Subnet | This is the subnet within an AWS VPC into which all of your instances will be deployed.  If you aren't familiar with this setting, you can choose a subnet from within your Default VPC.  They typically have a name like **subnet-111111a (172.31.0.0/20)** |
 | VPC | This is the AWS VPC into which all of your instances will be deployed.  It must be the VPC that contains the subnet you specified above.  If you aren't familiar with this setting, you can choose your Default VPC.  It will typically have a name like **vpc-111111a (172.31.0.0/16)** |
 
@@ -81,70 +95,3 @@ If you prefer to create your own customer OHDSI-in-a-Box image, take a look at t
 ## License
 
 This library is licensed under the Apache 2.0 License. 
-=======
-# OHDSI-in-a-Box
-AWS AMI containing SynPUF data in OMOP CDM, a RDBS including query client, WebAPI, ATLAS.
-
-To launch the AWS OHDSI In-a-box instance search for IQVIA or OHDSI in the community AMI search box in AWS `(US-EAST Region)`.
-
-The search will return 2 instances to choose from for your EC2 instance.
-
-	1) iqvia-ohdsi-postgresql-100k-v1.00
-	
-	2) iqvia-ohdsi-sqlserver-100k-2.3m-v1.00
-
-iqvia-ohdsi-postgresql-100k-v1.00 - Details
-  
-	Atlas 2.3.1
-  		http://localhost:8080/atlas
-  	WebAPI 2.3.0
-   		http://localhost:8080/WebAPI
-   		http://localhost:8080/WebAPI/vocabulary/search/cardiomyopathy
-  	Tomcat Login 9.0.4:
-  		URL: http://localhost:8080
-  		User: admin
-  		Password: ohdsi
-  	PostGre Admin Login (via pgAdmin)
-  		Username: postgres
-  		Password: ohdsi
-  	pgAdmin 4
-  	PostgreSQL
-  	100k Sample Database
-  	Rabbit In A Hat (jar file, shortcut on desktop)
-  	WhiteRabbit (jar file, shortcut on desktop)
-
-iqvia-ohdsi-sqlserver-100k-2.3m-v1.00 - Details
-
-	Atlas 2.3.1
-		http://localhost:8080/atlas
-	WebAPI 2.3.0
-		http://localhost:8080/WebAPI
-		http://localhost:8080/WebAPI/vocabulary/search/cardiomyopathy
-	Tomcat Login 9.0.4:
-		URL: http://localhost:8080
-		User: admin
-		Password: ohdsi
-	SQL Server sa Login (via Management Studio)
-		Username: sa
-		Password: ohdsi
-	100k Sample Database
-	2.3m Sample Database
-	Rabbit In A Hat (jar file, shortcut on desktop)
-	WhiteRabbit (jar file, shortcut on desktop)
-	Server Login 
-
-Server Credentials
-
-	User: iqvia-ohdsi
-	Password:  I!QViAOH@DSI18
-	(Note: It is highly recommended to change the password once logged in)
-	
-If you prefer to create your own server deployment an installation guide is available with all software, databases, and other tools to ease in the installation and deployment.  
-
-The file is titled: 
-	
-	OHDSI-In-a-box-QuickStart-Installation-Guide-v1.02
-
-Note:
-The installation guide only provides instructions for a SQL Server database.
-
