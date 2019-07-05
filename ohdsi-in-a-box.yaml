@@ -51,19 +51,19 @@ Metadata:
 Parameters:
   AccessCidr:
     AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
-    Description: 'The CIDR IP range that is permitted to access your OHDSI-in-a-Box instances. Note: A value of 0.0.0.0/0 will allow access from ANY IP address.'
+    Description: '[ Required ] The CIDR IP range that is permitted to access your OHDSI-in-a-Box instances. Note: A value of 0.0.0.0/0 will allow access from ANY IP address.'
     Type: String
     Default: 0.0.0.0/0
   NumberofInstances:
     Type: Number
     ConstraintDescription: Must be a number between 1 and 100.
-    Description: Specifies the number of OHDSI-in-a-box AMIs to deploy.
+    Description: '[ Required ] Specifies the number of OHDSI-in-a-box AMIs to deploy.'
     Default: 1
     MinValue: 1
     MaxValue: 100
   InstanceType:
     Type: String
-    Description: The size of each OHDSI in a box instance.  t2.medium is usually enough for a single training user.
+    Description: '[ Required ] The size of each OHDSI in a box instance.  t2.medium is usually enough for a single training user.'
     AllowedValues:
       - t2.medium 
       - t2.large 
@@ -73,35 +73,12 @@ Parameters:
       - t3.large 
       - t3.xlarge 
       - t3.2xlarge 
-      - m4.large 
-      - m4.xlarge 
-      - m4.2xlarge 
-      - m4.4xlarge 
-      - m4.10xlarge 
-      - m4.16xlarge 
       - m5.large 
       - m5.xlarge 
       - m5.2xlarge 
       - m5.4xlarge 
       - m5.12xlarge 
       - m5.24xlarge 
-      - c4.large 
-      - c4.xlarge 
-      - c4.2xlarge 
-      - c4.4xlarge 
-      - c4.8xlarge 
-      - c5.large 
-      - c5.xlarge 
-      - c5.2xlarge 
-      - c5.4xlarge 
-      - c5.9xlarge 
-      - c5.18xlarge
-      - r4.large 
-      - r4.xlarge 
-      - r4.2xlarge 
-      - r4.4xlarge 
-      - r4.8xlarge 
-      - r4.16xlarge
       - r5.large 
       - r5.xlarge 
       - r5.2xlarge 
@@ -109,20 +86,15 @@ Parameters:
       - r5.8xlarge 
       - r5.16xlarge 
       - g2.2xlarge
-      - g2.8xlarge
       - p2.xlarge
-      - p2.8xlarge
-      - p2.16xlarge
       - g3.4xlarge
-      - g3.8xlarge
-      - g3.16xlarge
     Default: t3.medium
   VolumeSizeGB:
       Type: Number
       Default: 100
       MinValue: 100
       MaxValue: 16000
-      Description:  Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)
+      Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)'
   InstancePassword:
     AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,41}$)[a-zA-Z\d!@#]*$
     ConstraintDescription: 'Must have a length of 8-41 and be letters (upper and lower), at least 1 number, and optionally these special characters !@#'
@@ -131,14 +103,12 @@ Parameters:
     MinLength: 8
     Type: String
     NoEcho: true
-
   VPC:
     Type: AWS::EC2::VPC::Id
-    Description: The VPC that will be used for the OHDSI-in-a-box instances
-
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
   Subnet:
     Type: AWS::EC2::Subnet::Id
-    Description: The VPC that will be used for the OHDSI-in-a-box instances
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
 
 
 #Mapping to find the OHDSI-in-a-box AMI in each region.
