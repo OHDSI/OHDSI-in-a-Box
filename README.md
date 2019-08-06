@@ -80,7 +80,9 @@ When you've provided appropriate values for the **Parameters**, choose **Next**.
 
 3. On the next screen, you can provide some other optional information like tags at your discretion, or just choose **Next**.
 
-4. On the next screen, you can review what will be deployed.  After you've reviewed it choose **Create**.
+4. On the next screen, you can review what will be deployed.  Be sure to check the box that says **I acknowledge that AWS CloudFormation might create IAM resources.** as shown in the image below.  Then choose **Create**.
+
+![alt-text](images/acknowledge.png "Acknowledge")
 
 5. You can watch as CloudFormation builds out your OHDSI environment. A CloudFormation deployment is called a *stack*. The parent stack creates several child stacks depending on the parameters you provided.  When all the stacks have reached the green CREATE_COMPLETE status, as shown in the screenshot following, then the OHDSI architecture has been deployed.  Select the **Outputs** tab to find a link to your OHDSI-in-a-Box instances, as shown below.
 
