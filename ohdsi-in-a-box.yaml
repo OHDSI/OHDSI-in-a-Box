@@ -88,7 +88,7 @@ Parameters:
       - g2.2xlarge
       - p2.xlarge
       - g3.4xlarge
-    Default: t3.medium
+    Default: t2.medium
   VolumeSizeGB:
       Type: Number
       Default: 100
@@ -148,48 +148,6 @@ Mappings:
 #      AMI: 
 
 Resources:
-  OHDSIinaboxASG: 
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub 'OHDSIinaBox-${AWS::StackName}'
-      VPCZoneIdentifier : 
-        - !Ref Subnet
-      LaunchConfigurationName: 
-        Ref: "OHDSIinaboxLC"
-      MinSize: !Ref NumberofInstances
-      MaxSize: !Ref NumberofInstances
-      Tags:
-        - Key: "Name"
-          Value: !Sub 'OHDSIinaBox-${AWS::StackName}'
-          PropagateAtLaunch: true
-
-  OHDSIinaboxLC: 
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      AssociatePublicIpAddress: True
-      ImageId: !FindInMap
-        - RegionMap
-        - !Ref 'AWS::Region'
-        - AMI
-      InstanceType: 
-        Ref: "InstanceType"
-      BlockDeviceMappings: 
-        - DeviceName: "/dev/sda1"
-          Ebs: 
-            VolumeSize: !Ref VolumeSizeGB
-      SecurityGroups:
-        - !Ref RDPSG
-      UserData:
-        Fn::Base64: !Sub |
-          <script>
-          echo select disk 0 > C:\diskpart.txt
-          echo select partition 2 >> C:\diskpart.txt
-          echo extend >> C:\diskpart.txt
-          diskpart /s C:\diskpart.txt
-          net user Administrator ${InstancePassword}
-          net user ohdsi ${InstancePassword}
-          </script>
-
   RDPSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -205,6 +163,106 @@ Resources:
           Value: RDP Security Group
 
 
+  EC2Instances:
+    Type: Custom::EC2Instances
+    Properties:
+      ServiceToken: !GetAtt EC2InstancesFunction.Arn
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref InstanceType
+      MinCount: !Ref NumberofInstances
+      MaxCount: !Ref NumberofInstances
+      SecurityGroupIds:
+        - !GetAtt 'RDPSG.GroupId'
+      BlockDeviceMappings: 
+        - DeviceName: "/dev/sda1"
+          Ebs: 
+            VolumeSize: !Ref VolumeSizeGB
+      UserData:
+        Fn::Base64: !Sub |
+          <script>
+          echo select disk 0 > C:\diskpart.txt
+          echo select partition 2 >> C:\diskpart.txt
+          echo extend >> C:\diskpart.txt
+          diskpart /s C:\diskpart.txt
+          net user Administrator ${InstancePassword}
+          net user ohdsi ${InstancePassword}
+          </script>
+      TagSpecifications:
+        - ResourceType: "instance"
+          Tags: 
+          - Key: "Name"
+            Value: !Sub 'OHDSIinaBox-${AWS::StackName}'
+
+  EC2InstancesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: !Sub |
+          var response = require('cfn-response');
+          var AWS = require('aws-sdk');
+          exports.handler = function(event, context) {
+            var physicalId = event.PhysicalResourceId || 'none';
+            function success(data) {
+              return response.send(event, context, response.SUCCESS, data, physicalId);
+            }
+            function failed(e) {
+              return response.send(event, context, response.FAILED, e, physicalId);
+            }
+            var ec2 = new AWS.EC2();
+            var instances;
+            if (event.RequestType == 'Create') {
+              var launchParams = event.ResourceProperties;
+              delete launchParams.ServiceToken;
+              ec2.runInstances(launchParams).promise().then((data)=> {
+                instances = data.Instances.map((data)=> data.InstanceId);
+                physicalId = instances.join(':');
+                return ec2.waitFor('instanceRunning', {InstanceIds: instances}).promise();
+              }).then((data)=> success({Instances: instances})
+              ).catch((e)=> failed(e));
+            } else if (event.RequestType == 'Delete') {
+              if (physicalId == 'none') {return success({});}
+              var deleteParams = {InstanceIds: physicalId.split(':')};
+              ec2.terminateInstances(deleteParams).promise().then((data)=>
+                ec2.waitFor('instanceTerminated', deleteParams).promise()
+              ).then((data)=>success({})
+              ).catch((e)=>failed(e));
+            } else {
+              return failed({Error: "In-place updates not supported."});
+            }
+          };
+      Runtime: nodejs8.10
+      Timeout: 300
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal: {Service: [lambda.amazonaws.com]}
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: EC2Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              - 'ec2:RunInstances'
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeInstanceStatus'
+              - 'ec2:TerminateInstances'
+              Resource: ['*']
+
 Outputs:
   OHDSIinaBoxInstances:
-    Value: !Join ['', ['https://', !Ref 'AWS::Region', '.console.aws.amazon.com/ec2/v2/home?region=', !Ref 'AWS::Region', '#Instances:search=', !Ref 'OHDSIinaboxASG']]
+    Value: !Join ['', ['https://', !Ref 'AWS::Region', '.console.aws.amazon.com/ec2/v2/home?region=', !Ref 'AWS::Region', '#Instances:search=', !Sub 'OHDSIinaBox-${AWS::StackName}']]
