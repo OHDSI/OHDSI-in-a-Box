@@ -34,10 +34,10 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 | CMS DeSynPUF | 1k persons |
 | Synthea | 1k persons |
 
-**RDP username:** ohdsi
-**RDP password:** this is specified as a parameter during deployment
-**Postgres username:** ohdsi
-**Postgres password:** this is specified as a parameter during deployment
+**RDP username:** ohdsi  
+**RDP password:** this is specified as a parameter during deployment  
+**Postgres username:** ohdsi  
+**Postgres password:** this is specified as a parameter during deployment  
 
 
 ## Windows Version
@@ -70,10 +70,10 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 | CMS DeSynPUF | 100k persons |
 | Synthea | 1k persons |
 
-**RDP username:** ohdsi
-**RDP password:** this is specified as a parameter during deployment
-**Postgres username:** postgres
-**Postgres password:** ohdsi
+**RDP username:** ohdsi  
+**RDP password:** this is specified as a parameter during deployment  
+**Postgres username:** postgres  
+**Postgres password:** ohdsi  
 
 
 ## OHDSI-in-a-Box Architecture
