@@ -82,9 +82,9 @@ OHDSI-in-a-Box is specifically created as a learning environment, and is used in
 
 ## OHDSI-in-a-Box deployment instructions
 
-0. Install an RDP client to access you OHDSI-in-a-Box instance
-**Windows** Windows includes an RDP client by default. To verify, type mstsc at a Command Prompt window. If your computer doesn't recognize this command, see the [Windows home page and search](https://windows.microsoft.com/) for the download for the Microsoft Remote Desktop app.
-**Mac OS X** Download the Microsoft Remote Desktop app from the Mac App Store.
+0. Install an RDP client to access you OHDSI-in-a-Box instance 
+**Windows** includes an RDP client by default. To verify, in the search box on the taskbar, type Remote Desktop Connection, and then select Remote Desktop Connection. If your computer doesn't show this application, see the [Windows home page and search](https://windows.microsoft.com/) for the download for the Microsoft Remote Desktop app.  
+**Mac OS X** Download the Microsoft Remote Desktop app from the Mac App Store.  
 **Linux** Use [rdesktop](http://www.rdesktop.org/).
 
 1. Begin the deployment process by clicking the **Launch Stack** button at the top of this page.  This will take you to the [CloudFormation Manage Console](https://console.aws.amazon.com/cloudformation/) and specify the OHDSI Cloudformation template URL (https://s3.amazonaws.com/ohdsi-rstudio/ohdsi-in-a-box.yaml).  In the top-right corner of the console, choose the AWS Region in which you'd like to deploy the OHDSI environment, and then click **Next**. 
@@ -101,7 +101,6 @@ OHDSI-in-a-Box is specifically created as a learning environment, and is used in
 |Parameter Name| Description|
 |---------------|-----------|
 | Number of OHDSI-in-a-Box instances to deploy | This determines the number of OHDSI-in-a-Box instances that will be deployed.  This allows you to easily deploy more than 1 instance if you are using it for a virtual training environment. |
-| Instance type to use for each OHDSI-in-a-Box instance | This determines the processing power of your OHDSI-in-aBox instance.  Typically, t3.medium offers a good balance between cost and performance  For more information, see the [list of available EC2 instnance types](https://aws.amazon.com/ec2/instance-types/). |
 | Instance type to use for each OHDSI-in-a-Box instance | This determines the processing power of your OHDSI-in-aBox instance.  Typically, t3.medium offers a good balance between cost and performance  For more information, see the [list of available EC2 instnance types](https://aws.amazon.com/ec2/instance-types/). |
 | Disk space for each OHDSI-in-a-Box instance | This defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB).  You can use this parameter to deploy additional disk space in order to upload your own data into your OHDSI-in-a-Box instance. |
 
