@@ -82,7 +82,7 @@ OHDSI-in-a-Box is specifically created as a learning environment, and is used in
 
 ## OHDSI-in-a-Box deployment instructions
 
-0. Install an RDP client to access you OHDSI-in-a-Box instance 
+0. Install an RDP client to access you OHDSI-in-a-Box instance   
 **Windows** includes an RDP client by default. To verify, in the search box on the taskbar, type Remote Desktop Connection, and then select Remote Desktop Connection. If your computer doesn't show this application, see the [Windows home page and search](https://windows.microsoft.com/) for the download for the Microsoft Remote Desktop app.  
 **Mac OS X** Download the Microsoft Remote Desktop app from the Mac App Store.  
 **Linux** Use [rdesktop](http://www.rdesktop.org/).
