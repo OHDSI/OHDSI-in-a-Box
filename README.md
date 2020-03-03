@@ -87,9 +87,9 @@ OHDSI-in-a-Box is specifically created as a learning environment, and is used in
 **Mac OS X** Download the Microsoft Remote Desktop app from the Mac App Store.  
 **Linux** Use [rdesktop](http://www.rdesktop.org/).
 
-1. Begin the deployment process by clicking the **Launch Stack** button at the top of this page.  This will take you to the [CloudFormation Manage Console](https://console.aws.amazon.com/cloudformation/) and specify the OHDSI Cloudformation template URL (https://s3.amazonaws.com/ohdsi-rstudio/ohdsi-in-a-box.yaml).  In the top-right corner of the console, choose the AWS Region in which you'd like to deploy the OHDSI environment, and then click **Next**. 
+1. Begin the deployment process by clicking the **Launch Stack** button at the top of this page the corresponds to the version (Windows or Linux) and the AWS Region you want to us.  This will take you to the [CloudFormation Manage Console](https://console.aws.amazon.com/cloudformation/).  You will see the CloudFormation template URL is pre-populated. Click **Next**. 
 
-2. The next screen will take in all of the parameters for your OHDSI environment.  A description is provided for each parameter to help explain its function, but following is also a detailed description of how to use each parameter.  At the top, provide a unique **Stack Name**.   
+2. The next screen will take in all of the parameters for your OHDSI environment.  A description is provided for each parameter to help explain its function, but following is also a detailed description of how to use each parameter.  At the top of this screen, be sure to provide a unique **Stack Name**.   
 
 #### Security
 |Parameter Name| Description|
