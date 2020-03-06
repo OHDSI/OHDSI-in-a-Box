@@ -3,7 +3,7 @@
 Quickly deploy a single instance implementation of OHDSI tools and sample data for personal learning and training enviroments.  If you are looking to deploy a enterprise, scalable OHDSI architecture then check out the [OHDSIonAWS project](https://github.com/OHDSI/OHDSIonAWS).  A Linux and Windows version of this environment are offered.  Both versions have the same set of OHDSI tools.  The Windows version uses 'pgAdmin 4' to allow access to the Postgres database while the Linux version uses 'SQL Workbench'.  The Linux version is ~40% less expensive to run, depending on the exact AWS instance type you choose.
 
 ## Deployment Walk Through Video
-[![OHDSI-in-a-Box Deployment Walk Through](https://raw.githubusercontent.com/OHDSI/OHDSI-in-a-Box/master/images/ohdsi-in-a-box_youtube.png)](https://www.youtube.com/watch?v=9JbgyE4rW2w "OHDSI-in-a-Box Deployment Walk Through")
+<p style="text-align: center;">[![OHDSI-in-a-Box Deployment Walk Through](https://raw.githubusercontent.com/OHDSI/OHDSI-in-a-Box/master/images/ohdsi-in-a-box_youtube.png)](https://www.youtube.com/watch?v=9JbgyE4rW2w "OHDSI-in-a-Box Deployment Walk Through")</p>
 
 
 ## Linux Version
