@@ -139,10 +139,11 @@ If you prefer to create your own customer OHDSI-in-a-Box image, take a look at t
 ## Adding multiple users in Linux
 If you'd like to add another user to your OHDSI-in-a-Box Linux instance, just login as the default 'ohdsi' user, open the Terminal icon on the desktop, and run the below commands replacing 'user2' with the username you'd like to use.  You can use this command over and over again to add new users.
 
-
-```sudo adduser user2
+```
+sudo adduser user2
 sudo cp -a . ../user2
-sudo chown -R user2:user2 ../user2/.```
+sudo chown -R user2:user2 ../user2/.
+```
 
 ## License
 
