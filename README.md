@@ -1,6 +1,6 @@
 ## OHDSI-in-a-Box
 
-Quickly deploy a single instance implementation of OHDSI tools and sample data for personal learning and training enviroments.  If you are looking to deploy a enterprise, scalable OHDSI architecture then check out the [OHDSIonAWS project](https://github.com/OHDSI/OHDSIonAWS).  A Linux and Windows version of this environment are offered.  Both versions have the same set of OHDSI tools.  The Windows version uses 'pgAdmin 4' to allow access to the Postgres database while the Linux version uses 'SQL Workbench'.  The Linux version is ~40% less expensive to run, depending on the exact AWS instance type you choose.
+Quickly deploy a single instance implementation of OHDSI tools and sample data for personal learning and training enviroments.  If you are looking to deploy a enterprise, scalable OHDSI architecture then check out the [OHDSIonAWS project](https://github.com/OHDSI/OHDSIonAWS).  A Linux and Windows version of this environment are offered.  Both versions have the same set of OHDSI tools.  The Windows version uses 'pgAdmin 4' to allow access to the Postgres database while the Linux version uses 'SQL Workbench'.  The Linux version is ~40% less expensive to run, depending on the exact AWS instance type you choose.  You can also easily add multiple users to a single instance of the Linux version if you like.
 
 ## Deployment Walk Through Video
 [![OHDSI-in-a-Box Deployment Walk Through](https://raw.githubusercontent.com/OHDSI/OHDSI-in-a-Box/master/images/ohdsi-in-a-box_youtube.png)](https://www.youtube.com/watch?v=9JbgyE4rW2w "OHDSI-in-a-Box Deployment Walk Through")
@@ -136,6 +136,13 @@ When you've provided appropriate values for the **Parameters**, choose **Next**.
 
 If you prefer to create your own customer OHDSI-in-a-Box image, take a look at the steps used to build this one.  They are documented in a file called OHDSI-In-a-box-QuickStart-Installation-Guide-v1.02 in this repository.
 
+## Adding multiple users in Linux
+If you'd like to add another user to your OHDSI-in-a-Box Linux instance, just login as the default 'ohdsi' user, open the Terminal icon on the desktop, and run the below commands replacing 'user2' with the username you'd like to use.  You can use this command over and over again to add new users.
+
+
+```sudo adduser user2
+sudo cp -a . ../user2
+sudo chown -R user2:user2 ../user2/.```
 
 ## License
 
