@@ -19,9 +19,9 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 | OMOP Common Data Model | v5.3.1 |
 | Atlas | v2.7.6 |
 | WebAPI | v2.7.6 | 
-| Usagi | v1.1.6 |
-| WhiteRabbit | v0.7.8 |
-| RabbitInAHat| v0.7.8 |
+| Usagi | v1.2.8 |
+| WhiteRabbit | v0.9.0 |
+| RabbitInAHat| v0.9.0 |
 | Achilles | v1.6.3 |
 | PatientLevelPrediction | v3.0.6 |
 | DatabaseConnector | v2.4.1 |
