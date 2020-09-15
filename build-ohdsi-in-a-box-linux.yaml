@@ -1,0 +1,1247 @@
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with the License. 
+# A copy of the License is located at
+#    http://aws.amazon.com/apache2.0/
+# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, 
+# either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This CloudFormation Template builds an OHDSI-in-a-Box image on Linux using the user provided parameters.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Security
+      Parameters:
+        - InstancePassword
+        - AccessCidr
+    - Label:
+        default: Scaling
+      Parameters:
+        - NumberofInstances
+        - InstanceType
+        - VolumeSizeGB
+    - Label:
+          default: Networking
+      Parameters:
+        - VPC
+        - Subnet
+
+    ParameterLabels:
+      InstancePassword:
+        default: Instance Password
+      AccessCidr:
+        default: Limit access to IP address range?
+      NumberofInstances:
+        default: Number of OHDSI-in-a-Box instances to deploy
+      InstanceType:
+        default: Instance type to use for each OHDSI-in-a-Box instance
+      VolumeSizeGB:
+        default: Disk space for each OHDSI-in-a-Box instance
+      VPC:
+        default: VPC in which to deploy the OHDSI-in-a-Box instances
+      Subnet:
+        default: Subnet to deploy the OHDSI-in-a-Box instances
+      Atlasv:
+        default:  Atlas Version
+      WebAPIv:
+        default:  WebAPI Version
+      OMOPv:
+        default:  OMOP Common Data Model Version
+      Achillesv:
+        default:  Achilles Version
+      PatientLevelPredictionv:
+        default:  PatientLevelPrediction Version
+      CohortMethodv:
+        default:  CohortMethod Version
+      SqlRenderv:
+        default:  SqlRender Version
+      DatabaseConnectorv:
+        default:  DatabaseConnector Version
+      DatabaseConnectorJarsv:
+        default:  DatabaseConnectorJars Version
+      OhdsiRToolsv:
+        default: OhdsiRTools Version
+      FeatureExtractionv:
+        default:  FeatureExtraction Version
+      Cyclopsv:
+        default:  Cyclops Version
+      EmpiricalCalibrationv:
+        default:  EmpiricalCalibration Version
+      OhdsiSharingv:
+        default:  OhdsiSharing Version
+      MethodEvaluationv:
+        default: MethodEvaluation Version
+      Hydrav:
+        default: Hydra Version
+      PredictionComparisonv:
+        default: PredictionComparison Version
+      Eunomiav:
+        default: Eunomia Version
+
+
+Parameters:
+  EC2KeyName:
+    ConstraintDescription: Must be letters (upper or lower), numbers, and special characters.
+    Description: '[ REQUIRED ] Name of an EC2 KeyPair. Your bastion & Web instances will launch with this KeyPair. To create a KeyPair, see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair'
+    Type: AWS::EC2::KeyPair::KeyName
+  AccessCidr:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Description: '[ Required ] The CIDR IP range that is permitted to access your OHDSI-in-a-Box instances. Note: A value of 0.0.0.0/0 will allow access from ANY IP address.'
+    Type: String
+    Default: 0.0.0.0/0
+  VolumeSizeGB:
+      Type: Number
+      Default: 110
+      MinValue: 110
+      MaxValue: 16000
+      Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)'
+  InstancePassword:
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,41}$)[a-zA-Z\d!@#]*$
+    ConstraintDescription: 'Must have a length of 8-41 and be letters (upper and lower), at least 1 number, and optionally these special characters !@#'
+    Description: '[ Required ] This password will be used for the "ohdsi" user account of all of the deployed instances.  It must have a length of 8-41 and be letters (upper and lower), at least one number, and optionally these special characters !@#'
+    MaxLength: 41
+    MinLength: 8
+    Type: String
+    NoEcho: true
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
+  Subnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
+  Sources:
+    Description: Comma-delimited list of OMOP CDM schema sources to load into the Redshift datawarehouse
+    Type: String
+    AllowedPattern: ^([a-zA-Z0-9,])*$
+    Default: CMSDESynPUF1kpostgres,CMSDESynPUF100kpostgres,synthea1kpostgres
+  SourcesBucket:
+    Description: S3 Bucket that contains DDL SQL files name after each 'Source'.sql that will be executed to load data into the OMOP CDM schema sources.
+    Type: String
+    AllowedPattern: ^([a-zA-Z0-9`~#$%^&*()_+,\\-])*$
+    Default: ohdsi-sample-data
+  OMOPv:
+    Description: The OHDSI CommonDataModel GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '5.3.1'
+  Atlasv:
+    Description: The OHDSI Atlas GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.7.2'
+  WebAPIv:
+    Description: OHDSI WebAPI GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.7.2'
+  Achillesv:
+    Description: OHDSI Achilles GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.6.3'
+  PatientLevelPredictionv:
+    Description: OHDSI PatientLevelPrediction GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '3.0.5'
+  CohortMethodv:
+    Description: OHDSI CohortMethod GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '3.0.2'
+  SqlRenderv:
+    Description: OHDSI SqlRender GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.6.2'
+  DatabaseConnectorv:
+    Description: OHDSI DatabaseConnector GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.2.0'
+  DatabaseConnectorJarsv:
+    Description: OHDSI DatabaseConnectorJars GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.0.0'
+  OhdsiRToolsv:
+    Description: OhdsiRTools GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.7.0'
+  FeatureExtractionv:
+    Description: OHDSI FeatureExtraction GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.2.4'
+  Cyclopsv:
+    Description: OHDSI Cyclops GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.0.2'
+  EmpiricalCalibrationv:
+    Description: OHDSI EmpiricalCalibration GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '2.0.0'
+  OhdsiSharingv:
+    Description: OHDSI OhdsiSharing GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '0.1.3'
+  MethodEvaluationv:
+    Description: OHDSI MethodEvaluation GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.0.2'
+  Hydrav:
+    Description: OHDSI Hydra GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '0.0.4'
+  PredictionComparisonv:
+    Description: OHDSI Hydra GitHub branch you want deployed (this specifies the version)
+    Type: String
+    Default: '1.0.0'
+
+#Mapping to find the OHDSI-in-a-box AMI in each region.
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-07ebfd5b3428b6f4d
+#      AMI: ami-07d0cf3af28718ef8
+#    us-east-2:
+#      AMI: 
+#    us-west-1:
+#      AMI: 
+#    us-west-2:
+#      AMI: 
+#    ca-central-1:
+#      AMI: 
+#    eu-west-1:
+#      AMI: 
+#    eu-west-2:
+#      AMI: 
+#    eu-west-3:
+#      AMI: 
+#    eu-central-1:
+#      AMI: 
+#    sa-east-1:
+#      AMI: 
+#    ap-south-1:
+#      AMI: 
+#    ap-southeast-1:
+#      AMI: 
+#    ap-southeast-2:
+#      AMI: 
+#    ap-northeast-1:
+#      AMI: 
+#    ap-northeast-2:
+#      AMI: 
+#    ap-northeast-3:
+#      AMI: 
+
+Resources:
+  TempEC2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          files:
+              /etc/awslogs/awslogs.conf:
+                content: !Sub |
+                  [general]
+                  state_file = /var/lib/awslogs/agent-state        
+                  
+                  [ohdsi-build-log]
+                  file = /var/log/cloud-init-output.log
+                  log_group_name = ohdsi-in-a-box-instance-build-log
+                  log_stream_name = ohdsi-in-a-box-build-log
+                mode: 000664
+                owner: root
+                group: root
+              /etc/awslogs/awscli.conf:
+                content: !Sub |
+                  [plugins]
+                  cwlogs = cwlogs
+                  [default]
+                  region = ${AWS::Region}
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/default.xml:
+                content: !Sub |
+                  <?xml version="1.0" encoding="UTF-8"?>
+
+                  <channel name="xfce4-panel" version="1.0">
+                    <property name="configver" type="int" value="2"/>
+                    <property name="panels" type="array">
+                      <value type="int" value="1"/>
+                      <value type="int" value="2"/>
+                      <property name="panel-1" type="empty">
+                        <property name="position" type="string" value="p=6;x=0;y=0"/>
+                        <property name="length" type="uint" value="100"/>
+                        <property name="position-locked" type="bool" value="true"/>
+                        <property name="size" type="uint" value="30"/>
+                        <property name="plugin-ids" type="array">
+                          <value type="int" value="1"/>
+                          <value type="int" value="3"/>
+                          <value type="int" value="15"/>
+                          <value type="int" value="4"/>
+                          <value type="int" value="5"/>
+                          <value type="int" value="6"/>
+                          <value type="int" value="2"/>
+                        </property>
+                      </property>
+                    <property name="plugins" type="empty">
+                      <property name="plugin-1" type="string" value="applicationsmenu"/>
+                      <property name="plugin-2" type="string" value="actions"/>
+                      <property name="plugin-3" type="string" value="tasklist"/>
+                      <property name="plugin-15" type="string" value="separator">
+                        <property name="expand" type="bool" value="true"/>
+                        <property name="style" type="uint" value="0"/>
+                      </property>
+                      <property name="plugin-4" type="string" value="pager"/>
+                      <property name="plugin-5" type="string" value="clock"/>
+                      <property name="plugin-6" type="string" value="systray"/>
+                      <property name="plugin-7" type="string" value="showdesktop"/>
+                      <property name="plugin-8" type="string" value="separator"/>
+                      <property name="plugin-9" type="string" value="launcher">
+                        <property name="items" type="array">
+                          <value type="string" value="exo-terminal-emulator.desktop"/>
+                        </property>
+                      </property>
+                      <property name="plugin-10" type="string" value="launcher">
+                        <property name="items" type="array">
+                          <value type="string" value="exo-file-manager.desktop"/>
+                        </property>
+                      </property>
+                      <property name="plugin-11" type="string" value="launcher">
+                        <property name="items" type="array">
+                          <value type="string" value="exo-web-browser.desktop"/>
+                        </property>
+                      </property>
+                      <property name="plugin-12" type="string" value="launcher">
+                        <property name="items" type="array">
+                          <value type="string" value="xfce4-appfinder.desktop"/>
+                        </property>
+                      </property>
+                      <property name="plugin-13" type="string" value="separator"/>
+                      <property name="plugin-14" type="string" value="directorymenu"/>
+                    </property>
+                  </channel>
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/WbDrivers.xml:
+                content: !Sub |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <java version="1.8.0_222" class="java.beans.XMLDecoder">
+                  <object class="java.util.ArrayList">
+                    <void method="add">
+                    <object class="workbench.db.DbDriver">
+                      <void property="driverClass">
+                      <string>com.amazon.redshift.jdbc.Driver</string>
+                      </void>
+                      <void property="libraryList">
+                      <object class="java.util.Collections" method="unmodifiableList">
+                        <object class="java.util.ArrayList">
+                        <void method="add">
+                          <string>/var/sqlworkbench/RedshiftJDBC42-1.2.20.1043.jar</string>
+                        </void>
+                        </object>
+                      </object>
+                      </void>
+                      <void property="name">
+                      <string>Amazon Redshift</string>
+                      </void>
+                      <void property="sampleUrl">
+                      <string>jdbc:redshift://endpoint:port/database</string>
+                      </void>
+                    </object>
+                    </void>
+                    <void method="add">
+                    <object class="workbench.db.DbDriver">
+                      <void property="driverClass">
+                      <string>org.postgresql.Driver</string>
+                      </void>
+                      <void property="libraryList">
+                      <object class="java.util.Collections" method="unmodifiableList">
+                        <object class="java.util.ArrayList">
+                        <void method="add">
+                          <string>/var/sqlworkbench/postgresql-42.2.6.jar</string>
+                        </void>
+                        </object>
+                      </object>
+                      </void>
+                      <void property="name">
+                      <string>PostgreSQL</string>
+                      </void>
+                      <void property="sampleUrl">
+                      <string>jdbc:postgresql://host:port/name_of_database</string>
+                      </void>
+                    </object>
+                    </void>
+                  </object>
+                  </java>
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/WbProfiles.xml:
+                content: !Sub |
+                  <?xml version="1.0" encoding="UTF-8"?>
+                  <java version="1.8.0_222" class="java.beans.XMLDecoder">
+                  <object class="java.util.ArrayList">
+                    <void method="add">
+                    <object class="workbench.db.ConnectionProfile">
+                      <void property="driverName">
+                      <string>PostgreSQL</string>
+                      </void>
+                      <void property="driverclass">
+                      <string>org.postgresql.Driver</string>
+                      </void>
+                      <void property="name">
+                      <string>New profile</string>
+                      </void>
+                      <void property="password">
+                      <string>${InstancePassword}</string>
+                      </void>
+                      <void property="storeExplorerSchema">
+                      <boolean>true</boolean>
+                      </void>
+                      <void property="url">
+                      <string>jdbc:postgresql://localhost:5432/omop</string>
+                      </void>
+                      <void property="useSeparateConnectionPerTab">
+                      <boolean>true</boolean>
+                      </void>
+                      <void property="username">
+                      <string>ohdsi</string>
+                      </void>
+                    </object>
+                    </void>
+                  </object>
+                  </java>
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/workbench.settings:
+                content: !Sub |
+                  workbench.connection.last=New profile
+                  workbench.connection.last.group=Default group
+
+                  workbench.drivers.lastlibdir=/var/sqlworkbench
+
+                  workbench.gui.MainWindow.1366x768.height=768
+                  workbench.gui.MainWindow.1366x768.width=1024
+                  workbench.gui.MainWindow.1366x768.x=202
+                  workbench.gui.MainWindow.1366x768.y=31
+                  workbench.gui.MainWindow.macropopup.visible=false
+                  workbench.gui.MainWindow.state=0
+                  workbench.gui.profiles.DriverEditorDialog.1366x768.height=390
+                  workbench.gui.profiles.DriverEditorDialog.1366x768.width=768
+                  workbench.gui.profiles.ProfileSelectionDialog.1366x768.height=575
+                  workbench.gui.profiles.ProfileSelectionDialog.1366x768.width=935
+                  workbench.gui.profiles.divider=254
+                  workbench.gui.updatecheck.lastcheck=2019-08-05
+
+                  workbench.macros.recent.count=0
+
+                  workbench.profiles.expandedgroups="Default group"
+
+                  workbench.workspace.recent.count=0
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/postgres_init_master.sql:
+                content: |
+                  CREATE ROLE ohdsi_admin
+                  CREATEDB
+                  VALID UNTIL 'infinity';
+                  COMMENT ON ROLE ohdsi_admin
+                  IS 'Administration group for OHDSI applications';
+
+                  CREATE ROLE ohdsi_app
+                  VALID UNTIL 'infinity';
+                  COMMENT ON ROLE ohdsi_app
+                  IS 'Application group for OHDSI applications';
+
+                  CREATE ROLE ohdsi_security
+                  VALID UNTIL 'infinity';
+                  COMMENT ON ROLE ohdsi_security
+                  IS 'Security authentication group for OHDSI applications';
+
+                  CREATE ROLE ohdsi_admin_user LOGIN ENCRYPTED PASSWORD 'OHDSIADMINUSERPWHASH'
+                  VALID UNTIL 'infinity';
+                  GRANT ohdsi_admin TO ohdsi_admin_user;
+                  COMMENT ON ROLE ohdsi_admin_user
+                  IS 'Admin user account for OHDSI applications';
+
+                  CREATE ROLE ohdsi_app_user LOGIN ENCRYPTED PASSWORD 'OHDSIAPPUSERPWHASH'
+                  VALID UNTIL 'infinity';
+                  GRANT ohdsi_app TO ohdsi_app_user;
+                  COMMENT ON ROLE ohdsi_app_user
+                  IS 'Application user account for OHDSI applications';
+
+                  CREATE ROLE ohdsi_security_user LOGIN ENCRYPTED PASSWORD 'OHDSISECURITYPWHASH'
+                  VALID UNTIL 'infinity';
+                  GRANT ohdsi_security TO ohdsi_security_user;
+                  COMMENT ON ROLE ohdsi_security_user
+                  IS 'Security Authentication user for Atlas and WebAPI';
+
+                  ALTER USER ohdsi_admin_user CREATEDB;
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/postgres_init_ohdsi.sql:
+                content: |
+                  CREATE DATABASE "OHDSI"
+                  WITH ENCODING='UTF8'
+                      OWNER=ohdsi_admin
+                      CONNECTION LIMIT=-1;
+                  COMMENT ON DATABASE "OHDSI"
+                  IS 'OHDSI database';
+                  GRANT ALL ON DATABASE "OHDSI" TO GROUP ohdsi_admin;
+                  GRANT CONNECT, TEMPORARY ON DATABASE "OHDSI" TO GROUP ohdsi_app;
+                  GRANT CONNECT, TEMPORARY ON DATABASE "OHDSI" TO GROUP ohdsi_security;
+
+                  \c OHDSI
+
+                  CREATE SCHEMA webapi
+                      AUTHORIZATION ohdsi_admin;
+                  COMMENT ON SCHEMA webapi
+                  IS 'Schema containing tables to support WebAPI functionality';
+                  GRANT USAGE ON SCHEMA webapi TO public;
+                  GRANT ALL ON SCHEMA webapi TO GROUP ohdsi_admin;
+                  GRANT USAGE ON SCHEMA webapi TO GROUP ohdsi_app;
+                  
+                  CREATE SCHEMA authentication
+                      AUTHORIZATION ohdsi_admin;
+                  GRANT ALL ON SCHEMA authentication TO GROUP ohdsi_security;
+
+                  ALTER DEFAULT PRIVILEGES IN SCHEMA webapi
+                    GRANT INSERT, SELECT, UPDATE, DELETE, REFERENCES, TRIGGER ON TABLES
+                    TO ohdsi_app;
+                  ALTER DEFAULT PRIVILEGES IN SCHEMA webapi
+                    GRANT SELECT, USAGE ON SEQUENCES
+                    TO ohdsi_app;
+                  ALTER DEFAULT PRIVILEGES IN SCHEMA webapi
+                    GRANT EXECUTE ON FUNCTIONS
+                    TO ohdsi_app;
+                  ALTER DEFAULT PRIVILEGES IN SCHEMA webapi
+                    GRANT USAGE ON TYPES
+                    TO ohdsi_app;
+                  ALTER DEFAULT PRIVILEGES IN SCHEMA authentication
+                    GRANT INSERT, SELECT, UPDATE, DELETE, REFERENCES, TRIGGER ON TABLES
+                    TO ohdsi_security;
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/postgres_init_sources.sql:
+                content: !Sub |
+                  INSERT INTO webapi.source (source_id, source_name, source_key, source_connection, source_dialect) VALUES (SOURCECOUNT, 'SOURCENAME_PLACEHOLDER', 'SOURCENAME_PLACEHOLDER', 'jdbc:postgresql://localhost:5432/omop?user=ohdsi&password=${InstancePassword}', 'postgresql');
+                  INSERT INTO webapi.source_daimon (source_daimon_id, source_id, daimon_type, table_qualifier, priority) VALUES (SOURCEDAEMONCOUNT1,SOURCECOUNT,0, 'CDM_PLACEHOLDER', 0);
+                  INSERT INTO webapi.source_daimon (source_daimon_id, source_id, daimon_type, table_qualifier, priority) VALUES (SOURCEDAEMONCOUNT2,SOURCECOUNT,1, 'CDM_PLACEHOLDER', SOURCEVOCABPRIORITY);
+                  INSERT INTO webapi.source_daimon (source_daimon_id, source_id, daimon_type, table_qualifier, priority) VALUES (SOURCEDAEMONCOUNT3,SOURCECOUNT,2, 'RESULTS_PLACEHOLDER', SOURCERESULTSPRIORITY);             
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/settings.xml:
+                content: !Sub |
+                  <settings>
+                  <profiles>
+                    <profile>
+                      <id>webapi-postgresql</id>
+                      <properties>
+                        <datasource.driverClassName>org.postgresql.Driver</datasource.driverClassName>
+                        <datasource.url>jdbc:postgresql://localhost:5432/OHDSI?ssl=true&amp;sslfactory=org.postgresql.ssl.NonValidatingFactory</datasource.url>
+                        <datasource.username>ohdsi_app_user</datasource.username>
+                        <datasource.password>${InstancePassword}</datasource.password>
+                        <datasource.dialect>postgresql</datasource.dialect>
+                        <datasource.ohdsi.schema>webapi</datasource.ohdsi.schema>
+                        <flyway.datasource.driverClassName>${!datasource.driverClassName}</flyway.datasource.driverClassName>
+                        <flyway.datasource.url>${!datasource.url}</flyway.datasource.url>
+                        <flyway.datasource.username>ohdsi_admin_user</flyway.datasource.username>
+                        <flyway.datasource.password>${InstancePassword}</flyway.datasource.password>
+                        <flyway.locations>classpath:db/migration/postgresql</flyway.locations>
+                        <security.enabled>false</security.enabled>
+                        <security.token.expiration>43200</security.token.expiration>
+                        <security.origin>*</security.origin>
+                        <security.ssl.enabled>false</security.ssl.enabled>
+                        <security.oauth.callback.ui>http://localhost/atlas/#/welcome</security.oauth.callback.ui>
+                        <security.oauth.callback.api>http://localhost:8080/WebAPI/user/oauth/callback</security.oauth.callback.api>
+                        <security.oauth.google.apiKey></security.oauth.google.apiKey>
+                        <security.oauth.google.apiSecret></security.oauth.google.apiSecret>
+                        <security.oauth.facebook.apiKey></security.oauth.facebook.apiKey>
+                        <security.oauth.facebook.apiSecret></security.oauth.facebook.apiSecret>
+                      </properties> 
+                    </profile>  
+                  </profiles>
+                  </settings>              
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/config-local.js:
+                content: !Sub |
+                  define([], function () {
+                    var configLocal = {};
+                  
+                    configLocal.api = {
+                      name: 'My Organization Name',
+                      url: 'http://localhost/WebAPI/'
+                    };
+                  
+                    return configLocal;
+                  });                    
+                mode: 000664
+                owner: root
+                group: root
+              /tmp/rdependencies.r:
+                content: !Sub |
+                  print("Testing to see if R dependency libraries are installed...")
+                  try(if("callr" %in% rownames(installed.packages()) == FALSE){install.packages("callr", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("cli" %in% rownames(installed.packages()) == FALSE){install.packages("cli", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("digest" %in% rownames(installed.packages()) == FALSE){install.packages("digest", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("git2r" %in% rownames(installed.packages()) == FALSE){install.packages("git2r", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("httr" %in% rownames(installed.packages()) == FALSE){install.packages("httr", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("jsonlite" %in% rownames(installed.packages()) == FALSE){install.packages("jsonlite", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("memoise" %in% rownames(installed.packages()) == FALSE){install.packages("memoise", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("pkgbuild" %in% rownames(installed.packages()) == FALSE){install.packages("pkgbuild", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("pkgload" %in% rownames(installed.packages()) == FALSE){install.packages("pkgload", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("processx" %in% rownames(installed.packages()) == FALSE){install.packages("processx", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("rcmdcheck" %in% rownames(installed.packages()) == FALSE){install.packages("rcmdcheck", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("remotes" %in% rownames(installed.packages()) == FALSE){install.packages("remotes", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("rstudioapi" %in% rownames(installed.packages()) == FALSE){install.packages("rstudioapi", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("sessioninfo" %in% rownames(installed.packages()) == FALSE){install.packages("sessioninfo", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("usethis" %in% rownames(installed.packages()) == FALSE){install.packages("usethis", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if("withr" %in% rownames(installed.packages()) == FALSE){install.packages("withr", repos = "http://cran.us.r-project.org", upgrade = "never")})
+
+                  try(if(("devtools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("devtools") != "2.0.2")){install.packages("https://cran.r-project.org/src/contrib/Archive/devtools/devtools_2.0.2.tar.gz", repos=NULL, type="source")})
+                  try(if(("remotes" %in% rownames(installed.packages()) == FALSE) || (packageVersion("remotes") != "2.0.4")){devtools::install_version("remotes", version = "2.0.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+
+                  try(if(("aws.signature" %in% rownames(installed.packages()) == FALSE) || (packageVersion("aws.signature") != "0.5.0")){install.packages("aws.signature", version = "0.5.0", repos = "http://cloudyr.github.io/drat", upgrade = "never")})
+                  try(if(("aws.ec2metadata" %in% rownames(installed.packages()) == FALSE) || (packageVersion("aws.ec2metadata") != "0.1.6")){install.packages("aws.ec2metadata", version = "0.1.6", repos = "http://cloudyr.github.io/drat", upgrade = "never")})
+                  try(if(("aws.s3" %in% rownames(installed.packages()) == FALSE) || (packageVersion("aws.s3") != "0.3.20")){install.packages("aws.s3", version = "0.3.20", repos = "http://cloudyr.github.io/drat", upgrade = "never")})
+                  try(if(("acepack" %in% rownames(installed.packages()) == FALSE) || (packageVersion("acepack") != "1.4.1")){devtools::install_version("acepack", version = "1.4.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("askpass" %in% rownames(installed.packages()) == FALSE) || (packageVersion("askpass") != "1.1")){devtools::install_version("askpass", version = "1.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("assertthat" %in% rownames(installed.packages()) == FALSE) || (packageVersion("assertthat") != "0.2.1")){devtools::install_version("assertthat", version = "0.2.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("AUC" %in% rownames(installed.packages()) == FALSE) || (packageVersion("AUC") != "0.3.0")){devtools::install_version("AUC", version = "0.3.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("backports" %in% rownames(installed.packages()) == FALSE) || (packageVersion("backports") != "1.1.4")){devtools::install_version("backports", version = "1.1.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("base64enc" %in% rownames(installed.packages()) == FALSE) || (packageVersion("base64enc") != "0.1-3")){devtools::install_version("base64enc", version = "0.1-3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("BH" %in% rownames(installed.packages()) == FALSE) || (packageVersion("BH") != "1.69.0-1")){devtools::install_version("BH", version = "1.69.0-1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("bit" %in% rownames(installed.packages()) == FALSE) || (packageVersion("bit") != "1.1-14")){devtools::install_version("bit", version = "1.1-14", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("bitops" %in% rownames(installed.packages()) == FALSE) || (packageVersion("bitops") != "1.0-6")){devtools::install_version("bitops", version = "1.0-6", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("caTools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("caTools") != "1.17.1.2")){devtools::install_version("caTools", version = "1.17.1.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("checkmate" %in% rownames(installed.packages()) == FALSE) || (packageVersion("checkmate") != "1.9.3")){devtools::install_version("checkmate", version = "1.9.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("clipr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("clipr") != "0.6.0")){devtools::install_version("clipr", version = "0.6.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("clisymbols" %in% rownames(installed.packages()) == FALSE) || (packageVersion("clisymbols") != "1.2.0")){devtools::install_version("clisymbols", version = "1.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("colorspace" %in% rownames(installed.packages()) == FALSE) || (packageVersion("colorspace") != "1.4-1")){devtools::install_version("colorspace", version = "1.4-1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("config" %in% rownames(installed.packages()) == FALSE) || (packageVersion("config") != "0.3")){devtools::install_version("config", version = "0.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("crayon" %in% rownames(installed.packages()) == FALSE) || (packageVersion("crayon") != "1.3.4")){devtools::install_version("crayon", version = "1.3.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("crosstalk" %in% rownames(installed.packages()) == FALSE) || (packageVersion("crosstalk") != "1.0.0")){devtools::install_version("crosstalk", version = "1.0.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("curl" %in% rownames(installed.packages()) == FALSE) || (packageVersion("curl") != "3.3")){devtools::install_version("curl", version = "3.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("data.table" %in% rownames(installed.packages()) == FALSE) || (packageVersion("data.table") != "1.12.2")){devtools::install_version("data.table", version = "1.12.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("DBI" %in% rownames(installed.packages()) == FALSE) || (packageVersion("DBI") != "1.0.0")){devtools::install_version("DBI", version = "1.0.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("desc" %in% rownames(installed.packages()) == FALSE) || (packageVersion("desc") != "1.2.0")){devtools::install_version("desc", version = "1.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("diagram" %in% rownames(installed.packages()) == FALSE) || (packageVersion("diagram") != "1.6.4")){devtools::install_version("diagram", version = "1.6.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("doParallel" %in% rownames(installed.packages()) == FALSE) || (packageVersion("doParallel") != "1.0.14")){devtools::install_version("doParallel", version = "1.0.14", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("dplyr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("dplyr") != "0.8.1")){devtools::install_version("dplyr", version = "0.8.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("DT" %in% rownames(installed.packages()) == FALSE) || (packageVersion("DT") != "0.7")){devtools::install_version("DT", version = "0.7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("evaluate" %in% rownames(installed.packages()) == FALSE) || (packageVersion("evaluate") != "0.14")){devtools::install_version("evaluate", version = "0.14", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("fansi" %in% rownames(installed.packages()) == FALSE) || (packageVersion("fansi") != "0.4.0")){devtools::install_version("fansi", version = "0.4.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("fastmatch" %in% rownames(installed.packages()) == FALSE) || (packageVersion("fastmatch") != "1.1-0")){devtools::install_version("fastmatch", version = "1.1-0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ff" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ff") != "2.2-14")){devtools::install_version("ff", version = "2.2-14", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ffbase" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ffbase") != "0.12.7")){devtools::install_version("ffbase", version = "0.12.7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("foreach" %in% rownames(installed.packages()) == FALSE) || (packageVersion("foreach") != "1.4.4")){devtools::install_version("foreach", version = "1.4.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("formatR" %in% rownames(installed.packages()) == FALSE) || (packageVersion("formatR") != "1.7")){devtools::install_version("formatR", version = "1.7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("Formula" %in% rownames(installed.packages()) == FALSE) || (packageVersion("Formula") != "1.2-3")){devtools::install_version("Formula", version = "1.2-3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("fs" %in% rownames(installed.packages()) == FALSE) || (packageVersion("fs") != "1.3.1")){devtools::install_version("fs", version = "1.3.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("functional" %in% rownames(installed.packages()) == FALSE) || (packageVersion("functional") != "0.6")){devtools::install_version("functional", version = "0.6", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("gdtools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("gdtools") != "0.1.9")){devtools::install_version("gdtools", version = "0.1.9", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("generics" %in% rownames(installed.packages()) == FALSE) || (packageVersion("generics") != "0.0.2")){devtools::install_version("generics", version = "0.0.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ggplot2" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ggplot2") != "3.2.0")){devtools::install_version("ggplot2", version = "3.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("gh" %in% rownames(installed.packages()) == FALSE) || (packageVersion("gh") != "1.0.1")){devtools::install_version("gh", version = "1.0.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("glue" %in% rownames(installed.packages()) == FALSE) || (packageVersion("glue") != "1.3.1")){devtools::install_version("glue", version = "1.3.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("gridExtra" %in% rownames(installed.packages()) == FALSE) || (packageVersion("gridExtra") != "2.3")){devtools::install_version("gridExtra", version = "2.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("gtable" %in% rownames(installed.packages()) == FALSE) || (packageVersion("gtable") != "0.3.0")){devtools::install_version("gtable", version = "0.3.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("hexbin" %in% rownames(installed.packages()) == FALSE) || (packageVersion("hexbin") != "1.27.3")){devtools::install_version("hexbin", version = "1.27.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("highr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("highr") != "0.8")){devtools::install_version("highr", version = "0.8", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("Hmisc" %in% rownames(installed.packages()) == FALSE) || (packageVersion("Hmisc") != "4.2-0")){devtools::install_version("Hmisc", version = "4.2-0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("htmlTable" %in% rownames(installed.packages()) == FALSE) || (packageVersion("htmlTable") != "1.13.1")){devtools::install_version("htmlTable", version = "1.13.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("htmltools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("htmltools") != "0.3.6")){devtools::install_version("htmltools", version = "0.3.6", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("htmlwidgets" %in% rownames(installed.packages()) == FALSE) || (packageVersion("htmlwidgets") != "1.3")){devtools::install_version("htmlwidgets", version = "1.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("httpuv" %in% rownames(installed.packages()) == FALSE) || (packageVersion("httpuv") != "1.5.0")){devtools::install_version("httpuv", version = "1.5.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ini" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ini") != "0.3.1")){devtools::install_version("ini", version = "0.3.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("iterators" %in% rownames(installed.packages()) == FALSE) || (packageVersion("iterators") != "1.0.10")){devtools::install_version("iterators", version = "1.0.10", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("itertools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("itertools") != "0.1-3")){devtools::install_version("itertools", version = "0.1-3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("keras" %in% rownames(installed.packages()) == FALSE) || (packageVersion("keras") != "2.2.4.1")){devtools::install_version("keras", version = "2.2.4.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("knitr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("knitr") != "1.23")){devtools::install_version("knitr", version = "1.23", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("labeling" %in% rownames(installed.packages()) == FALSE) || (packageVersion("labeling") != "0.3")){devtools::install_version("labeling", version = "0.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("later" %in% rownames(installed.packages()) == FALSE) || (packageVersion("later") != "0.8.0")){devtools::install_version("later", version = "0.8.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("latticeExtra" %in% rownames(installed.packages()) == FALSE) || (packageVersion("latticeExtra") != "0.6-28")){devtools::install_version("latticeExtra", version = "0.6-28", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("lazyeval" %in% rownames(installed.packages()) == FALSE) || (packageVersion("lazyeval") != "0.2.2")){devtools::install_version("lazyeval", version = "0.2.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("magrittr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("magrittr") != "1.5")){devtools::install_version("magrittr", version = "1.5", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("mailR" %in% rownames(installed.packages()) == FALSE) || (packageVersion("mailR") != "0.4.1")){devtools::install_version("mailR", version = "0.4.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("markdown" %in% rownames(installed.packages()) == FALSE) || (packageVersion("markdown") != "1")){devtools::install_version("markdown", version = "1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("mime" %in% rownames(installed.packages()) == FALSE) || (packageVersion("mime") != "0.7")){devtools::install_version("mime", version = "0.7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("munsell" %in% rownames(installed.packages()) == FALSE) || (packageVersion("munsell") != "0.5.0")){devtools::install_version("munsell", version = "0.5.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("officer" %in% rownames(installed.packages()) == FALSE) || (packageVersion("officer") != "0.3.5")){devtools::install_version("officer", version = "0.3.5", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("openssl" %in% rownames(installed.packages()) == FALSE) || (packageVersion("openssl") != "1.4")){devtools::install_version("openssl", version = "1.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("openxlsx" %in% rownames(installed.packages()) == FALSE) || (packageVersion("openxlsx") != "4.1.0.1")){devtools::install_version("openxlsx", version = "4.1.0.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("pack" %in% rownames(installed.packages()) == FALSE) || (packageVersion("pack") != "0.1-1")){devtools::install_version("pack", version = "0.1-1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ParallelLogger" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ParallelLogger") != "1.1.0")){devtools::install_version("ParallelLogger", version = "1.1.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("pillar" %in% rownames(installed.packages()) == FALSE) || (packageVersion("pillar") != "1.4.1")){devtools::install_version("pillar", version = "1.4.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("pkgconfig" %in% rownames(installed.packages()) == FALSE) || (packageVersion("pkgconfig") != "2.0.2")){devtools::install_version("pkgconfig", version = "2.0.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("plogr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("plogr") != "0.2.0")){devtools::install_version("plogr", version = "0.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("plotly" %in% rownames(installed.packages()) == FALSE) || (packageVersion("plotly") != "4.9.0")){devtools::install_version("plotly", version = "4.9.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("plyr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("plyr") != "1.8.4")){devtools::install_version("plyr", version = "1.8.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("png" %in% rownames(installed.packages()) == FALSE) || (packageVersion("png") != "0.1-7")){devtools::install_version("png", version = "0.1-7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("prettyunits" %in% rownames(installed.packages()) == FALSE) || (packageVersion("prettyunits") != "1.0.2")){devtools::install_version("prettyunits", version = "1.0.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("pROC" %in% rownames(installed.packages()) == FALSE) || (packageVersion("pROC") != "1.15.0")){devtools::install_version("pROC", version = "1.15.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("promises" %in% rownames(installed.packages()) == FALSE) || (packageVersion("promises") != "1.0.1")){devtools::install_version("promises", version = "1.0.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("PRROC" %in% rownames(installed.packages()) == FALSE) || (packageVersion("PRROC") != "1.3.1")){devtools::install_version("PRROC", version = "1.3.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ps" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ps") != "1.3.0")){devtools::install_version("ps", version = "1.3.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("purrr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("purrr") != "0.3.2")){devtools::install_version("purrr", version = "0.3.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("PythonInR" %in% rownames(installed.packages()) == FALSE) || (packageVersion("PythonInR") != "0.1-4")){devtools::install_version("PythonInR", version = "0.1-4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("R.methodsS3" %in% rownames(installed.packages()) == FALSE) || (packageVersion("R.methodsS3") != "1.7.1")){devtools::install_version("R.methodsS3", version = "1.7.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("R.oo" %in% rownames(installed.packages()) == FALSE) || (packageVersion("R.oo") != "1.22.0")){devtools::install_version("R.oo", version = "1.22.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("R.utils" %in% rownames(installed.packages()) == FALSE) || (packageVersion("R.utils") != "2.9.0")){devtools::install_version("R.utils", version = "2.9.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("R6" %in% rownames(installed.packages()) == FALSE) || (packageVersion("R6") != "2.4.0")){devtools::install_version("R6", version = "2.4.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("RColorBrewer" %in% rownames(installed.packages()) == FALSE) || (packageVersion("RColorBrewer") != "1.1-2")){devtools::install_version("RColorBrewer", version = "1.1-2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("Rcpp" %in% rownames(installed.packages()) == FALSE) || (packageVersion("Rcpp") != "1.0.1")){devtools::install_version("Rcpp", version = "1.0.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("RcppEigen" %in% rownames(installed.packages()) == FALSE) || (packageVersion("RcppEigen") != "0.3.3.5.0")){devtools::install_version("RcppEigen", version = "0.3.3.5.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("RCurl" %in% rownames(installed.packages()) == FALSE) || (packageVersion("RCurl") != "1.95-4.12")){devtools::install_version("RCurl", version = "1.95-4.12", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ReporteRs" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ReporteRs") != "0.8.10")){devtools::install_version("ReporteRs", version = "0.8.10", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("ReporteRsjars" %in% rownames(installed.packages()) == FALSE) || (packageVersion("ReporteRsjars") != "0.0.4")){devtools::install_version("ReporteRsjars", version = "0.0.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("reshape2" %in% rownames(installed.packages()) == FALSE) || (packageVersion("reshape2") != "1.4.3")){devtools::install_version("reshape2", version = "1.4.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("reticulate" %in% rownames(installed.packages()) == FALSE) || (packageVersion("reticulate") != "1.12")){devtools::install_version("reticulate", version = "1.12", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rJava" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rJava") != "0.9-11")){devtools::install_version("rJava", version = "0.9-11", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rjson" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rjson") != "0.2.20")){devtools::install_version("rjson", version = "0.2.20", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("RJSONIO" %in% rownames(installed.packages()) == FALSE) || (packageVersion("RJSONIO") != "1.3-1.2")){devtools::install_version("RJSONIO", version = "1.3-1.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rlang" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rlang") != "0.4.0")){devtools::install_version("rlang", version = "0.4.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rmarkdown" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rmarkdown") != "1.13")){devtools::install_version("rmarkdown", version = "1.13", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rprojroot" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rprojroot") != "1.3-2")){devtools::install_version("rprojroot", version = "1.3-2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("rvg" %in% rownames(installed.packages()) == FALSE) || (packageVersion("rvg") != "0.2.1")){devtools::install_version("rvg", version = "0.2.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("scales" %in% rownames(installed.packages()) == FALSE) || (packageVersion("scales") != "1.0.0")){devtools::install_version("scales", version = "1.0.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("shape" %in% rownames(installed.packages()) == FALSE) || (packageVersion("shape") != "1.4.4")){devtools::install_version("shape", version = "1.4.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("shiny" %in% rownames(installed.packages()) == FALSE) || (packageVersion("shiny") != "1.3.2")){devtools::install_version("shiny", version = "1.3.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("shinycssloaders" %in% rownames(installed.packages()) == FALSE) || (packageVersion("shinycssloaders") != "0.2.0")){devtools::install_version("shinycssloaders", version = "0.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("shinydashboard" %in% rownames(installed.packages()) == FALSE) || (packageVersion("shinydashboard") != "0.7.1")){devtools::install_version("shinydashboard", version = "0.7.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("slam" %in% rownames(installed.packages()) == FALSE) || (packageVersion("slam") != "0.1-45")){devtools::install_version("slam", version = "0.1-45", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("snow" %in% rownames(installed.packages()) == FALSE) || (packageVersion("snow") != "0.4-3")){devtools::install_version("snow", version = "0.4-3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("sourcetools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("sourcetools") != "0.1.7")){devtools::install_version("sourcetools", version = "0.1.7", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("stringi" %in% rownames(installed.packages()) == FALSE) || (packageVersion("stringi") != "1.4.3")){devtools::install_version("stringi", version = "1.4.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("stringr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("stringr") != "1.4.0")){devtools::install_version("stringr", version = "1.4.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("survAUC" %in% rownames(installed.packages()) == FALSE) || (packageVersion("survAUC") != "1.0-5")){devtools::install_version("survAUC", version = "1.0-5", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("sys" %in% rownames(installed.packages()) == FALSE) || (packageVersion("sys") != "3.2")){devtools::install_version("sys", version = "3.2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tensorflow" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tensorflow") != "1.13.1")){devtools::install_version("tensorflow", version = "1.13.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tfruns" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tfruns") != "1.4")){devtools::install_version("tfruns", version = "1.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tibble" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tibble") != "2.1.3")){devtools::install_version("tibble", version = "2.1.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tidyr" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tidyr") != "0.8.3")){devtools::install_version("tidyr", version = "0.8.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tidyselect" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tidyselect") != "0.2.5")){devtools::install_version("tidyselect", version = "0.2.5", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("tinytex" %in% rownames(installed.packages()) == FALSE) || (packageVersion("tinytex") != "0.14")){devtools::install_version("tinytex", version = "0.14", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("triebeard" %in% rownames(installed.packages()) == FALSE) || (packageVersion("triebeard") != "0.3.0")){devtools::install_version("triebeard", version = "0.3.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("urltools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("urltools") != "1.7.3")){devtools::install_version("urltools", version = "1.7.3", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("utf8" %in% rownames(installed.packages()) == FALSE) || (packageVersion("utf8") != "1.1.4")){devtools::install_version("utf8", version = "1.1.4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("uuid" %in% rownames(installed.packages()) == FALSE) || (packageVersion("uuid") != "0.1-2")){devtools::install_version("uuid", version = "0.1-2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("vctrs" %in% rownames(installed.packages()) == FALSE) || (packageVersion("vctrs") != "0.1.0")){devtools::install_version("vctrs", version = "0.1.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("viridis" %in% rownames(installed.packages()) == FALSE) || (packageVersion("viridis") != "0.5.1")){devtools::install_version("viridis", version = "0.5.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("viridisLite" %in% rownames(installed.packages()) == FALSE) || (packageVersion("viridisLite") != "0.3.0")){devtools::install_version("viridisLite", version = "0.3.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("whisker" %in% rownames(installed.packages()) == FALSE) || (packageVersion("whisker") != "0.3-2")){devtools::install_version("whisker", version = "0.3-2", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("xfun" %in% rownames(installed.packages()) == FALSE) || (packageVersion("xfun") != "0.8")){devtools::install_version("xfun", version = "0.8", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("xgboost" %in% rownames(installed.packages()) == FALSE) || (packageVersion("xgboost") != "0.6.4.1")){devtools::install_version("xgboost", version = "0.6.4.1", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("XML" %in% rownames(installed.packages()) == FALSE) || (packageVersion("XML") != "3.98-1.20")){devtools::install_version("XML", version = "3.98-1.20", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("xml2" %in% rownames(installed.packages()) == FALSE) || (packageVersion("xml2") != "1.2.0")){devtools::install_version("xml2", version = "1.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("xopen" %in% rownames(installed.packages()) == FALSE) || (packageVersion("xopen") != "1.0.0")){devtools::install_version("xopen", version = "1.0.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("xtable" %in% rownames(installed.packages()) == FALSE) || (packageVersion("xtable") != "1.8-4")){devtools::install_version("xtable", version = "1.8-4", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("yaml" %in% rownames(installed.packages()) == FALSE) || (packageVersion("yaml") != "2.2.0")){devtools::install_version("yaml", version = "2.2.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                  try(if(("zeallot" %in% rownames(installed.packages()) == FALSE) || (packageVersion("zeallot") != "0.1.0")){devtools::install_version("zeallot", version = "0.1.0", repos = "http://cran.us.r-project.org", upgrade = "never")})
+                mode: 000664
+                owner: root
+                group: root  
+              /tmp/achilles.r:
+                content: !Sub |
+                  try(if(("SqlRender" %in% rownames(installed.packages()) == FALSE) || (packageVersion("SqlRender") != "${SqlRenderv}")){devtools::install_version("SqlRender", ref = "${SqlRenderv}", upgrade = "never")})
+                  try(if(("DatabaseConnector" %in% rownames(installed.packages()) == FALSE) || (packageVersion("DatabaseConnector") != "${DatabaseConnectorv}")){devtools::install_version("DatabaseConnector", ref = "v${DatabaseConnectorv}", upgrade = "never")})
+                  try(if(("DatabaseConnectorJars" %in% rownames(installed.packages()) == FALSE) || (packageVersion("DatabaseConnectorJars") != "${DatabaseConnectorJarsv}")){devtools::install_version("DatabaseConnectorJars", ref = "v${DatabaseConnectorJarsv}", upgrade = "never")})
+                  try(if(("OhdsiRTools" %in% rownames(installed.packages()) == FALSE) || (packageVersion("OhdsiRTools") != "${OhdsiRToolsv}")){devtools::install_github("ohdsi/OhdsiRTools", ref = "v${OhdsiRToolsv}", upgrade = "never")})
+                  try(if(("Achilles" %in% rownames(installed.packages()) == FALSE) || (packageVersion("Achilles") != "${Achillesv}")){devtools::install_github("ohdsi/Achilles", ref = "v${Achillesv}", upgrade = "never")})
+                  library(Achilles)
+                  connectionDetails <- createConnectionDetails(dbms="postgresql", server="localhost/omop", user="ohdsi",
+                                          password='${InstancePassword}', schema="CDM_PLACEHOLDER", port="5432")
+                  achillesResults <- achilles(connectionDetails, cdmDatabaseSchema="CDM_PLACEHOLDER", 
+                                          resultsDatabaseSchema="RESULTS_PLACEHOLDER", sourceName="SOURCENAME_PLACEHOLDER", 
+                                          cdmVersion = "5", vocabDatabaseSchema="CDM_PLACEHOLDER")              
+                mode: 000664
+                owner: root
+                group: root           
+    Properties:
+      InstanceType: 'm5.4xlarge'
+      KeyName: !Ref 'EC2KeyName'
+      IamInstanceProfile: !Ref OHDSIinaboxIP
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      SecurityGroupIds: 
+        - !Ref RDPSG
+      SubnetId: !Ref Subnet
+      BlockDeviceMappings: 
+          - DeviceName: "/dev/sda1"
+            Ebs: 
+              VolumeType: "gp2"
+              DeleteOnTermination: "true"
+              VolumeSize: !Ref VolumeSizeGB
+      Tags:
+        - Key: "Name"
+          Value: "ohdsi-in-a-box-build"
+      UserData:
+        Fn::Base64: !Sub | 
+          #!/bin/bash
+          # Initialize environment variables from CloudFormation parameters
+          export username=ohdsi
+          export password=${InstancePassword}
+          export ACCT_ID=${AWS::AccountId}
+          export CDM_VERSION=${OMOPv}
+          export SOURCES=${Sources}
+          export SOURCESBUCKET=${SourcesBucket}
+          export OHDSIADMINUSERPWHASH=`echo -n "${InstancePassword}ohdsi_admin_user" | md5sum | cut -d " " -f 1 | awk '{print "md5"$1}'`
+          export OHDSIAPPUSERPWHASH=`echo -n "${InstancePassword}ohdsi_app_user" | md5sum | cut -d " " -f 1 | awk '{print "md5"$1}'`
+          echo "OHDSIADMINUSERPWHASH=" $OHDSIADMINUSERPWHASH
+          echo "OHDSIAPPUSERPWHASH=" $OHDSIAPPUSERPWHASH
+
+          #Install AWS SSM Agent
+          sudo snap install amazon-ssm-agent --classic
+          sudo snap refresh amazon-ssm-agent
+
+          # Get latest packages, update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" dist-upgrade
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq upgrade
+
+          # Install Java 8
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install openjdk-8-jdk libcommons-csv-java expect awscli python-pip
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
+          sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          /usr/local/bin/cfn-init --verbose --stack ${AWS::StackName} --resource TempEC2Instance --region ${AWS::Region}
+
+          # OHDSI Dependencies
+          sudo apt-get -yq install nodejs npm git
+
+          # Install xrdp and GUI packages
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install xrdp ubuntu-desktop gnome-panel gnome-settings-daemon metacity nautilus gnome-terminal xfce4-terminal xfce4
+          sudo apt -yq purge ifupdown
+
+          # Create user and set password and add them to the sudoers file
+          sudo adduser --disabled-password --gecos "" $username
+          sudo echo -e "$password\n$password" | passwd $username
+          echo "$username  ALL=(ALL:ALL) ALL" >> /etc/sudoers
+
+          # Setup windows manager
+          sudo su - $username -c "echo xfce4-session >~/.xsession"
+          sudo cat <<EOT > /etc/xrdp/startwm.sh
+          cp /tmp/default.xml /etc/xdg/xfce4/panel
+          #!/bin/sh
+          if [ -r /etc/default/locale ]; then
+            . /etc/default/locale
+            export LANG LANGUAGE
+          fi
+          startxfce4
+          EOT
+
+          # Get OHDSI projects
+          chmod 777 /tmp
+          cd /tmp
+          git clone -b v${Atlasv} https://github.com/OHDSI/Atlas
+          git clone -b v${WebAPIv} https://github.com/OHDSI/WebAPI
+          git clone -b v${OMOPv} https://github.com/OHDSI/CommonDataModel
+          sudo service awslogs start
+
+          # Install R, R Libraries, and RStudio Desktop
+          sudo sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list
+          wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb
+          sudo apt-get install -yq ./rstudio-1.2.1335-amd64.deb
+          R --version
+          wget https://cran.r-project.org/src/base/R-3/R-3.5.3.tar.gz
+          tar -xzf R-3.5.3.tar.gz
+          sudo apt-get install -yq build-essential libgfortran3 libcairo2-dev libssl-dev wget dpkg-dev libcurl4-openssl-dev libreadline7 libreadline-dev libcairo2-dev libpng-dev libjpeg-dev libtiff-dev libpq-dev
+          f77 --version
+          cd R-3.5.3
+          ./configure --with-readline=yes --enable-R-profiling=no --enable-memory-profiling=no --enable-R-shlib --with-pic --prefix=/usr --with-x --with-libpng --with-jpeglib --with-cairo --enable-R-shlib --with-recommended-packages=yes
+          make -j 8
+          sudo make install
+          R --version
+          sudo R CMD javareconf
+          cd /usr/lib/R/library
+          wget https://ohdsi-sample-data.s3.amazonaws.com/ohdsi-rdependencies-3.5.3.tar.gz
+          tar zxvf ohdsi-rdependencies-3.5.3.tar.gz
+          cd /tmp
+          sudo Rscript /tmp/rdependencies.r
+          
+          # Install Google Chrome
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb
+
+          # Download OHDSI ETL tools
+          cd /var
+          mkdir OHDSI
+          cd OHDSI
+          wget https://github.com/OHDSI/Usagi/releases/download/v1.2.2/Usagi_v1.2.2.jar
+          wget https://github.com/OHDSI/WhiteRabbit/releases/download/v0.7.6/WhiteRabbit_v0.7.6.zip
+          unzip WhiteRabbit*.zip
+          chmod +x *.jar
+          mkdir /var/OHDSI
+          cp -a * /var/OHDSI/
+
+          # Install sqlworkbench
+          mkdir /var/sqlworkbench/
+          cd /var/sqlworkbench/
+          wget https://www.sql-workbench.eu/Workbench-Build124.zip
+          unzip Workbench-Build124.zip
+          wget https://s3.amazonaws.com/redshift-downloads/drivers/jdbc/1.2.20.1043/RedshiftJDBC42-1.2.20.1043.jar
+          wget https://jdbc.postgresql.org/download/postgresql-42.2.6.jar
+          cd /tmp
+
+          # Tomcat 8.0.x is End of Life, however Tomcat 7.x is not...
+          # If Tomcat 8.5.x or newer is available install it, otherwise install Tomcat 7
+          # I have not testing with Tomcat9...
+          if [[ $(apt-cache show tomcat8 | egrep "Version: 8.[5-9]" | wc -l) -gt 0 ]]
+          then
+              TOMCAT="tomcat8"
+          else
+              TOMCAT="tomcat7"
+          fi
+
+          # Uncomment to manually force a tomcat version
+          #TOMCAT=""
+
+          # Install features
+          echo -e "Installing dependencies. This might take a few minutes..."
+
+          DEBIAN_FRONTEND=noninteractive apt-get -yq install $TOMCAT
+
+          # Set Tomcat to port 80
+          sudo sh -c 'echo "AUTHBIND=yes" >> /etc/default/tomcat8'
+          sudo touch /etc/authbind/byport/80
+          sudo chmod 500 /etc/authbind/byport/80
+          sudo chown tomcat8 /etc/authbind/byport/80
+          sudo sed -i 's/8080/80/g' /etc/tomcat8/server.xml
+          sudo echo "tomcat.util.scan.StandardJarScanFilter.jarsToSkip=bcprov*.jar" >> /etc/tomcat8/catalina.properties
+          echo -e "Restarting tomcat..."
+          service $TOMCAT restart
+
+          # Install PostgreSQL
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -yq install postgresql postgresql-contrib libssl1.0-dev
+          sudo -u postgres createuser -s ohdsi
+          sudo -u ohdsi psql -d postgres -c "alter user ohdsi with password '$password';"
+
+          # Build WebAPI and Atlas
+          sudo apt-get -yq install nodejs npm git
+          cd /tmp
+          sed -i 's!OHDSIADMINUSERPWHASH!'$OHDSIADMINUSERPWHASH'!' postgres_init_master.sql
+          sed -i 's!OHDSIAPPUSERPWHASH!'$OHDSIAPPUSERPWHASH'!' postgres_init_master.sql
+          sed -i 's!OHDSISECURITYPWHASH!'$OHDSISECURITYPWHASH'!' postgres_init_master.sql
+          sudo -u ohdsi psql -d postgres -a -f postgres_init_master.sql 
+          sudo su - ohdsi -c "export PGPASSWORD=$password && psql -h localhost -d postgres -U ohdsi_admin_user -a -f /tmp/postgres_init_ohdsi.sql"
+
+          curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.0/install.sh | bash
+          export NVM_DIR="/root/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+          nvm install 11.11.0
+          sudo apt -yq install maven
+          mv settings.xml ./WebAPI/
+          cd WebAPI
+          mvn clean package -s settings.xml -P webapi-postgresql -DskipTests=true
+          cd ..
+          cp ./WebAPI/target/WebAPI.war /var/lib/tomcat8/webapps
+          mv config-local.js ./Atlas/js/
+          cd Atlas
+          npm config set strict-ssl false
+          npm run build
+          zip -r ../ROOT.war * 
+          cd ..
+          cp ROOT.war /var/lib/tomcat8/webapps
+          rm -Rf /var/lib/tomcat8/webapps/ROOT
+          chown -R tomcat8:tomcat8 /var/lib/tomcat8/webapps/
+          service $TOMCAT restart
+
+          # Setup Desktop Icons
+          sudo su - $username -c "mkdir ~/Desktop"
+
+          sudo -u $username bash -c 'echo "Connection details for the OMOP database on local Postgres
+          Postgres URL localhost:5432/omop\",
+          user = \"ohdsi\",
+          password = \"'$password'\")
+
+          " > /home/'$username'/Desktop/ConnectionDetails.txt'
+
+          for i in $(echo $SOURCES | sed "s/,/ /g")
+          do
+          sudo -u $username bash -c 'echo "cdmDatabaseSchema \"'$i'\"
+          resultsDatabaseSchema \"'$i'results\"
+                  " >> /home/'$username'/Desktop/ConnectionDetails.txt'
+          done
+
+
+          # Setup Desktop icons
+          sudo -H -u ohdsi bash -c 'mkdir ~/.sqlworkbench'
+          sudo -H -u ohdsi bash -c 'cp /tmp/WbDrivers.xml ~/.sqlworkbench'
+          sudo -H -u ohdsi bash -c 'cp /tmp/WbProfiles.xml ~/.sqlworkbench'
+          sudo -H -u ohdsi bash -c 'cp /tmp/workbench.settings ~/.sqlworkbench'
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/Terminal.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Icon=terminal
+          Name=Terminal
+          Exec=xfce4-terminal
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/Terminal.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/Chrome.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Icon=google-chrome
+          Name=Google Chrome
+          Exec=/opt/google/chrome/google-chrome --password-store=basic %U http://localhost
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/Chrome.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/cdmwiki.desktop
+          [Desktop Entry]
+          Version=1.0
+          Type=Link
+          Name=CDM wiki
+          Icon=user-bookmarks
+          URL=http://www.ohdsi.org/web/wiki/doku.php
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/cdmwiki.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/cdmgithub.desktop
+          [Desktop Entry]
+          Version=1.0
+          Type=Link
+          Name=CDM GitHub
+          Icon=user-bookmarks
+          URL=https://github.com/OHDSI/SqlRender
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/cdmgithub.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/cdmforums.desktop
+          [Desktop Entry]
+          Version=1.0
+          Type=Link
+          Name=CDM Forums
+          Icon=user-bookmarks
+          URL=http://forums.ohdsi.org
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/cdmforums.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/sqlworkbench.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Name=SQL Workbench
+          Exec=java -jar /var/sqlworkbench/sqlworkbench.jar
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/sqlworkbench.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/usagi.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Name=Usagi
+          Exec=java -jar `ls /var/OHDSI/Usagi*.jar`
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/usagi.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/rabbit.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Name=RabbitinAHat
+          Exec=java -jar `ls /var/OHDSI/Rabbit*.jar`
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/rabbit.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/whiterabbit.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Name=WhiteRabbit
+          Exec=java -jar `ls /var/OHDSI/White*.jar`
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/whiterabbit.desktop"
+
+          sudo su - ohdsi -c "cat <<EOT > ~/Desktop/RStudio.desktop
+          #!/usr/bin/env xdg-open
+          [Desktop Entry]
+          Version=1.0
+          Terminal=false
+          Type=Application
+          Icon=rstudio
+          Name=RStudio
+          Exec=/usr/lib/rstudio/bin/rstudio %F
+          EOT"
+          sudo su - ohdsi -c "chmod +x ~/Desktop/RStudio.desktop"
+
+          
+          #Deploy OMOP sources to PostgreSQL
+          sudo -u ohdsi createdb omop
+          export POSTGRESTDDL=`ls "./CommonDataModel/PostgreSQL/OMOP CDM postgresql ddl.txt"`
+          export POSTGRESTINDEXDDL=`ls "./CommonDataModel/PostgreSQL/OMOP CDM postgresql indexes.txt"`
+
+          #Some of the current Vocabulary data sets from Athena do not have values for these columns
+          if [ "$CDM_VERSION" = "5.3.1" ]; then
+              sed -i '48s/.*/  concept_name  VARCHAR(255) NULL ,/' "$POSTGRESTDDL"
+              sed -i '53s/.*/  concept_code  VARCHAR(50) NULL ,/' "$POSTGRESTDDL"
+              sed -i '64s/.*/  vocabulary_reference VARCHAR(255) NULL,/' "$POSTGRESTDDL"
+              sed -i '65s/.*/  vocabulary_version VARCHAR(255) NULL,/' "$POSTGRESTDDL"
+              sed -i '241s/.*/  race_source_value				    VARCHAR(255) NULL,/' "$POSTGRESTDDL"
+              sed -i '361s/.*/  procedure_source_value		  VARCHAR(255)	  NULL ,/' "$POSTGRESTDDL"
+              sed -i '374s/.*/  drug_exposure_start_date		  DATE			    NULL,/' "$POSTGRESTDDL"
+              sed -i '376s/.*/  drug_exposure_end_date		  DATE			    NULL,/' "$POSTGRESTDDL"
+              sed -i '435s/.*/  condition_source_value  		    VARCHAR(255)  	NULL,/' "$POSTGRESTDDL"
+              sed -i '437s/.*/  condition_status_source_value	  VARCHAR(255)  	NULL,/' "$POSTGRESTDDL"
+              sed -i '462s/.*/  measurement_source_value		  VARCHAR(255)	NULL ,/' "$POSTGRESTDDL"
+              sed -i '465s/.*/  value_source_value			      VARCHAR(255)	NULL/' "$POSTGRESTDDL"
+              sed -i '522s/.*/  value_as_string				        VARCHAR(255)	NULL ,/' "$POSTGRESTDDL"
+              sed -i '577s/.*/  place_of_service_source_value   VARCHAR(255)	  	NULL/' "$POSTGRESTDDL"
+              sed -i '714s/.*/  dose_era_start_date	    DATE			  NULL,/' "$POSTGRESTDDL"
+              sed -i '715s/.*/  dose_era_end_date	    DATE			  NULL/' "$POSTGRESTDDL"
+              sed -i 's/DATETIME2/TIMESTAMP/' "$POSTGRESTDDL"
+          fi
+
+
+          SOURCECOUNT=0
+          SOURCEDAEMONCOUNT=0
+          SOURCEVOCABPRIORITY=0
+          SOURCERESULTSPRIORITY=0
+          for i in $(echo $SOURCES | sed "s/,/ /g")
+          do
+            #Create a new schema for this source and apply the OMOP CDM DDL
+            cp "$POSTGRESTDDL" "$POSTGRESTDDL-$i"
+            sed -i "1s/^/SET search_path to $i;\n/" "$POSTGRESTDDL-$i"
+            sudo -u ohdsi psql -d omop -a -c "CREATE SCHEMA $i;"
+            sudo -u ohdsi psql -d omop -a -f "$POSTGRESTDDL-$i"
+            
+            #Load the data with the appropriate source name and run it
+            aws s3 cp s3://$SOURCESBUCKET/$i.sql .
+            sudo -u ohdsi psql -d omop -a -f $i.sql
+
+            #Apply indexes to this OMOP CDM schema
+            cp "$POSTGRESTINDEXDDL" "$POSTGRESTINDEXDDL-$i"
+            sed -i "1s/^/SET search_path to $i;\n/" "$POSTGRESTINDEXDDL-$i"
+            sudo -u ohdsi psql -d omop -a -f "$POSTGRESTINDEXDDL-$i"
+            
+            #Get the Results Schema from WebAPI and apply the Results schema
+            wget -q "http://localhost/WebAPI/ddl/results?dialect=postgresql&schema=${!i}results&vocabSchema=${!i}" -O results_schema.sql
+            sudo -u ohdsi psql -d omop -a -c "CREATE SCHEMA ${!i}results;"
+            sudo -u ohdsi psql -d omop -a -f results_schema.sql
+
+            #Create a WebAPI Sources DDL for this Source
+            cp postgres_init_sources.sql postgres_init_sources-$i.sql
+            let SOURCECOUNT+=1
+            
+            if [ "$SOURCECOUNT" = "1" ]; then
+              SOURCEVOCABPRIORITY=1
+              SOURCERESULTSPRIORITY=1
+            else
+              SOURCEVOCABPRIORITY=0
+              SOURCERESULTSPRIORITY=0
+            fi
+            
+            sed -i 's!SOURCECOUNT!'$SOURCECOUNT'!' postgres_init_sources-$i.sql
+            let SOURCEDAEMONCOUNT+=1
+            sed -i 's!SOURCEDAEMONCOUNT1!'$SOURCEDAEMONCOUNT'!' postgres_init_sources-$i.sql
+            let SOURCEDAEMONCOUNT+=1
+            sed -i 's!SOURCEDAEMONCOUNT2!'$SOURCEDAEMONCOUNT'!' postgres_init_sources-$i.sql
+            let SOURCEDAEMONCOUNT+=1
+            sed -i 's!SOURCEDAEMONCOUNT3!'$SOURCEDAEMONCOUNT'!' postgres_init_sources-$i.sql
+            sed -i 's!SOURCEVOCABPRIORITY!'$SOURCEVOCABPRIORITY'!' postgres_init_sources-$i.sql
+            sed -i 's!SOURCERESULTSPRIORITY!'$SOURCERESULTSPRIORITY'!' postgres_init_sources-$i.sql
+            sed -i 's!SOURCENAME_PLACEHOLDER!'$i'!' postgres_init_sources-$i.sql
+            sed -i 's!SOURCENAME_PLACEHOLDER!'$i'!' postgres_init_sources-$i.sql
+            sed -i 's!CDM_PLACEHOLDER!'$i'!' postgres_init_sources-$i.sql
+            sed -i 's!RESULTS_PLACEHOLDER!'${!i}results'!' postgres_init_sources-$i.sql  
+
+            #Load the sources reference table into the WebAPI Postgres database
+            sudo su - ohdsi -c "export PGPASSWORD=$password && psql -d OHDSI --host=localhost --port=5432 -U ohdsi_admin_user -a -f /tmp/postgres_init_sources-$i.sql"
+            service $TOMCAT restart
+
+            #Inject source information and run Achilles R script to enabled Data Source visualization
+            cp /tmp/achilles.r /tmp/achilles-$i.r
+            sed -i 's!SOURCENAME_PLACEHOLDER!'$i'!' /tmp/achilles-$i.r
+            sed -i 's!CDM_PLACEHOLDER!'$i'!' /tmp/achilles-$i.r
+            sed -i 's!RESULTS_PLACEHOLDER!'${!i}results'!' /tmp/achilles-$i.r  
+            Rscript /tmp/achilles-$i.r
+            service $TOMCAT restart
+          done
+          wget https://ohdsi-sample-data.s3.amazonaws.com/ETL.pgdump.gz
+          gzip -d ETL.pgdump.gz
+          createdb ETL
+          psql -d ETL < ETL.pgdump
+          rm ETL.pgdump
+
+
+  RDPSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for OHDSI-in-a-Box
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3389'
+          ToPort: '3389'
+          CidrIp: !Ref AccessCidr
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref AccessCidr
+      Tags:
+        - Key: Name
+          Value: RDP Security Group
+
+  OHDSIinaboxRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns: 
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+  OHDSIinaboxRolePolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: root
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: 
+              - "s3:GetObject"
+              - "s3:ListObjects"
+              - "s3:ListBucket"
+              - "s3:PutObject"
+            Resource: '*'
+          - Effect: Allow
+            Action: 
+              - "iam:GetRole"
+              - "s3:ListAllMyBuckets"
+            Resource: '*'
+      Roles:
+        - !Ref 'OHDSIinaboxRole'
+  OHDSIinaboxIP:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref 'OHDSIinaboxRole'
+
