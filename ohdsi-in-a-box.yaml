@@ -91,8 +91,8 @@ Parameters:
     Default: t2.medium
   VolumeSizeGB:
       Type: Number
-      Default: 100
-      MinValue: 100
+      Default: 200
+      MinValue: 200
       MaxValue: 16000
       Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)'
   InstancePassword:
