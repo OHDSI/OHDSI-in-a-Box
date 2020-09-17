@@ -94,7 +94,7 @@ Parameters:
       Default: 200
       MinValue: 200
       MaxValue: 16000
-      Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)'
+      Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 200GB and the maximum size is 16,000GB (or 16TB)'
   InstancePassword:
     AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,41}$)[a-zA-Z\d!@#]*$
     ConstraintDescription: 'Must have a length of 8-41 and be letters (upper and lower), at least 1 number, and optionally these special characters !@#'
