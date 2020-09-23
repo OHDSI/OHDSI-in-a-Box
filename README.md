@@ -43,6 +43,9 @@ Quickly deploy a single instance implementation of OHDSI tools and sample data f
 **Postgres username:** ohdsi  
 **Postgres password:** this is specified as a parameter during deployment  
 
+If you want to add users to the OHDSI-in-a-Box Linux version, you can do this by using the ```adduser``` command and then copying the ```ohdsi``` user home directory, as shown in the screenshot below:
+
+![alt-text](images/adduser.png "Adding a user")
 
 ## Windows Version
 | AWS Region Code | Name | Launch |
