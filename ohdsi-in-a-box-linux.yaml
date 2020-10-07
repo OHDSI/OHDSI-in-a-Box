@@ -1,0 +1,266 @@
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with the License. 
+# A copy of the License is located at
+#    http://aws.amazon.com/apache2.0/
+# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, 
+# either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This CloudFormation Template deploys a specified number of OHDSI-in-a-Box servers.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Security
+      Parameters:
+        - InstancePassword
+        - AccessCidr
+    - Label:
+        default: Scaling
+      Parameters:
+        - NumberofInstances
+        - InstanceType
+        - VolumeSizeGB
+    - Label:
+          default: Networking
+      Parameters:
+        - VPC
+        - Subnet
+
+    ParameterLabels:
+      InstancePassword:
+        default: Instance Password
+      AccessCidr:
+        default: Limit access to IP address range?
+      NumberofInstances:
+        default: Number of OHDSI-in-a-Box instances to deploy
+      InstanceType:
+        default: Instance type to use for each OHDSI-in-a-Box instance
+      VolumeSizeGB:
+        default: Disk space for each OHDSI-in-a-Box instance
+      VPC:
+        default: VPC in which to deploy the OHDSI-in-a-Box instances
+      Subnet:
+        default: Subnet to deploy the OHDSI-in-a-Box instances
+
+
+
+Parameters:
+  AccessCidr:
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+    Description: '[ Required ] The CIDR IP range that is permitted to access your OHDSI-in-a-Box instances. Note: A value of 0.0.0.0/0 will allow access from ANY IP address.'
+    Type: String
+    Default: 0.0.0.0/0
+  NumberofInstances:
+    Type: Number
+    ConstraintDescription: Must be a number between 1 and 100.
+    Description: '[ Required ] Specifies the number of OHDSI-in-a-box AMIs to deploy.'
+    Default: 1
+    MinValue: 1
+    MaxValue: 100
+  InstanceType:
+    Type: String
+    Description: '[ Required ] The size of each OHDSI in a box instance.  t2.medium is usually enough for a single training user.'
+    AllowedValues:
+      - t2.medium 
+      - t2.large 
+      - t2.xlarge 
+      - t2.2xlarge 
+      - t3.medium 
+      - t3.large 
+      - t3.xlarge 
+      - t3.2xlarge 
+      - m5.large 
+      - m5.xlarge 
+      - m5.2xlarge 
+      - m5.4xlarge 
+      - m5.12xlarge 
+      - m5.24xlarge 
+      - r5.large 
+      - r5.xlarge 
+      - r5.2xlarge 
+      - r5.4xlarge 
+      - r5.8xlarge 
+      - r5.16xlarge 
+      - g2.2xlarge
+      - p2.xlarge
+      - g3.4xlarge
+    Default: t2.medium
+  VolumeSizeGB:
+      Type: Number
+      Default: 110
+      MinValue: 110
+      MaxValue: 16000
+      Description:  '[ Required ] Defines the disk size of the OHDSI-in-a-Box instance in GBs.  The minimum size is 100GB and the maximum size is 16,000GB (or 16TB)'
+  InstancePassword:
+    AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.{8,41}$)[a-zA-Z\d!@#]*$
+    ConstraintDescription: 'Must have a length of 8-41 and be letters (upper and lower), at least 1 number, and optionally these special characters !@#'
+    Description: '[ Required ] This password will be used for the "ohdsi" user account of all of the deployed instances.  It must have a length of 8-41 and be letters (upper and lower), at least one number, and optionally these special characters !@#'
+    MaxLength: 41
+    MinLength: 8
+    Type: String
+    NoEcho: true
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
+  Subnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: '[ Required ] The VPC that will be used for the OHDSI-in-a-box instances'
+
+
+#Mapping to find the OHDSI-in-a-box AMI in each region.
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-04fc41bba02647770
+#    us-east-2:
+#      AMI: 
+#    us-west-1:
+#      AMI: 
+#    us-west-2:
+#      AMI: 
+#    ca-central-1:
+#      AMI: 
+    eu-west-1:
+      AMI: ami-078f98f2cf9889368
+#    eu-west-2:
+#      AMI: 
+#    eu-west-3:
+#      AMI: 
+#    eu-central-1:
+#      AMI: 
+#    sa-east-1:
+#      AMI: 
+#    ap-south-1:
+#      AMI: 
+#    ap-southeast-1:
+#      AMI: 
+#    ap-southeast-2:
+#      AMI: 
+    ap-northeast-1:
+      AMI: ami-07f1dc01fc5b31846
+#    ap-northeast-2:
+#      AMI: 
+#    ap-northeast-3:
+#      AMI: 
+
+Resources:
+  RDPSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for OHDSI-in-a-Box
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3389'
+          ToPort: '3389'
+          CidrIp: !Ref AccessCidr
+      Tags:
+        - Key: Name
+          Value: RDP Security Group
+
+
+  EC2Instances:
+    Type: Custom::EC2Instances
+    Properties:
+      ServiceToken: !GetAtt EC2InstancesFunction.Arn
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref InstanceType
+      MinCount: !Ref NumberofInstances
+      MaxCount: !Ref NumberofInstances
+      SubnetId: !Ref Subnet
+      SecurityGroupIds:
+        - !GetAtt 'RDPSG.GroupId'
+      BlockDeviceMappings: 
+        - DeviceName: "/dev/sda1"
+          Ebs: 
+            VolumeSize: !Ref VolumeSizeGB
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          export diskname=`lsblk | grep disk | cut -d " " -f 1`
+          sudo growpart /dev/$diskname 0
+          sudo resize2fs /dev/${!diskname}1
+          sudo echo -e "${InstancePassword}\n${InstancePassword}" | passwd ohdsi
+      TagSpecifications:
+        - ResourceType: "instance"
+          Tags: 
+          - Key: "Name"
+            Value: !Sub 'OHDSIinaBox-${AWS::StackName}'
+
+  EC2InstancesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: !Sub |
+          var response = require('cfn-response');
+          var AWS = require('aws-sdk');
+          exports.handler = function(event, context) {
+            var physicalId = event.PhysicalResourceId || 'none';
+            function success(data) {
+              return response.send(event, context, response.SUCCESS, data, physicalId);
+            }
+            function failed(e) {
+              return response.send(event, context, response.FAILED, e, physicalId);
+            }
+            var ec2 = new AWS.EC2();
+            var instances;
+            if (event.RequestType == 'Create') {
+              var launchParams = event.ResourceProperties;
+              delete launchParams.ServiceToken;
+              ec2.runInstances(launchParams).promise().then((data)=> {
+                instances = data.Instances.map((data)=> data.InstanceId);
+                physicalId = instances.join(':');
+                return ec2.waitFor('instanceRunning', {InstanceIds: instances}).promise();
+              }).then((data)=> success({Instances: instances})
+              ).catch((e)=> failed(e));
+            } else if (event.RequestType == 'Delete') {
+              if (physicalId == 'none') {return success({});}
+              var deleteParams = {InstanceIds: physicalId.split(':')};
+              ec2.terminateInstances(deleteParams).promise().then((data)=>
+                ec2.waitFor('instanceTerminated', deleteParams).promise()
+              ).then((data)=>success({})
+              ).catch((e)=>failed(e));
+            } else {
+              return failed({Error: "In-place updates not supported."});
+            }
+          };
+      Runtime: nodejs12.x
+      Timeout: 300
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal: {Service: [lambda.amazonaws.com]}
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: EC2Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+              - 'ec2:*'
+              - 'ec2:RunInstances'
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeInstanceStatus'
+              - 'ec2:TerminateInstances'
+              Resource: ['*']
+
+Outputs:
+  OHDSIinaBoxInstances:
+    Value: !Join ['', ['https://', !Ref 'AWS::Region', '.console.aws.amazon.com/ec2/v2/home?region=', !Ref 'AWS::Region', '#Instances:search=', !Sub 'OHDSIinaBox-${AWS::StackName}']]
